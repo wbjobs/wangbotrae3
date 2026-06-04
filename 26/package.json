@@ -1,0 +1,16 @@
+{
+  "name": "pcap-analyzer",
+  "version": "1.0.0",
+  "description": "Local Pcap Network Packet Analyzer & Protocol Sequence Diagram Generator",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron ."
+  },
+  "dependencies": {
+    "d3": "^7.9.0"
+  },
+  "devDependencies": {
+    "electron": "^28.0.0"
+  }
+}

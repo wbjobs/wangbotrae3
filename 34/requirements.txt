@@ -1,0 +1,13 @@
+fastapi==0.115.6
+uvicorn==0.34.0
+numpy==1.26.4
+numba==0.60.0
+netCDF4==1.7.2
+rasterio==1.4.3
+scipy==1.14.1
+matplotlib==3.9.3
+pandas==2.2.3
+pydantic==2.10.4
+python-multipart==0.0.20
+aiofiles==24.1.0
+concurrent-futures-enhanced==0.1

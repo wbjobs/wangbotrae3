@@ -1,0 +1,628 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebGPU SPH 流体模拟 - Marching Cubes 表面重建</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #0c0c0c 0%, #1a1a2e 100%);
+            color: #ffffff;
+            overflow: hidden;
+            width: 100vw;
+            height: 100vh;
+        }
+
+        #container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+        }
+
+        #canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(ellipse at center, #1a1a3e 0%, #0a0a1a 100%);
+        }
+
+        #loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            z-index: 100;
+            background: rgba(0, 0, 0, 0.9);
+            padding: 40px;
+            border-radius: 16px;
+            border: 2px solid #00d4ff;
+        }
+
+        #loading h2 {
+            color: #00d4ff;
+            margin-bottom: 20px;
+            font-size: 24px;
+        }
+
+        #loading .spinner {
+            width: 50px;
+            height: 50px;
+            border: 4px solid rgba(0, 212, 255, 0.2);
+            border-top-color: #00d4ff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        #error {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            z-index: 100;
+            background: rgba(255, 0, 0, 0.1);
+            padding: 40px;
+            border-radius: 16px;
+            border: 2px solid #ff4444;
+            max-width: 500px;
+            display: none;
+        }
+
+        #error h2 {
+            color: #ff4444;
+            margin-bottom: 20px;
+        }
+
+        #error p {
+            color: #ffaaaa;
+            line-height: 1.6;
+        }
+
+        #error a {
+            color: #00d4ff;
+        }
+
+        #ui-panel {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            width: 340px;
+            max-height: calc(100vh - 40px);
+            background: rgba(10, 10, 30, 0.92);
+            backdrop-filter: blur(10px);
+            border-radius: 12px;
+            border: 1px solid rgba(0, 212, 255, 0.3);
+            padding: 20px;
+            overflow-y: auto;
+            z-index: 50;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+        }
+
+        #ui-panel::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        #ui-panel::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 3px;
+        }
+
+        #ui-panel::-webkit-scrollbar-thumb {
+            background: rgba(0, 212, 255, 0.5);
+            border-radius: 3px;
+        }
+
+        .panel-section {
+            margin-bottom: 24px;
+        }
+
+        .panel-section:last-child {
+            margin-bottom: 0;
+        }
+
+        .panel-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: #00d4ff;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 12px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid rgba(0, 212, 255, 0.3);
+        }
+
+        .control-group {
+            margin-bottom: 16px;
+        }
+
+        .control-label {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 6px;
+            font-size: 13px;
+            color: #cccccc;
+        }
+
+        .control-value {
+            color: #00d4ff;
+            font-weight: 600;
+            font-family: 'Courier New', monospace;
+        }
+
+        input[type="range"] {
+            width: 100%;
+            height: 6px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 3px;
+            outline: none;
+            -webkit-appearance: none;
+            cursor: pointer;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 16px;
+            height: 16px;
+            background: #00d4ff;
+            border-radius: 50%;
+            cursor: pointer;
+            box-shadow: 0 0 10px rgba(0, 212, 255, 0.5);
+            transition: all 0.2s;
+        }
+
+        input[type="range"]::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+            box-shadow: 0 0 15px rgba(0, 212, 255, 0.8);
+        }
+
+        .button-group {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+
+        .btn {
+            flex: 1;
+            padding: 10px 16px;
+            background: rgba(0, 212, 255, 0.15);
+            border: 1px solid rgba(0, 212, 255, 0.5);
+            color: #00d4ff;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 500;
+            transition: all 0.2s;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .btn:hover {
+            background: rgba(0, 212, 255, 0.3);
+            box-shadow: 0 0 20px rgba(0, 212, 255, 0.3);
+        }
+
+        .btn.active {
+            background: rgba(0, 212, 255, 0.4);
+            border-color: #00d4ff;
+            box-shadow: 0 0 15px rgba(0, 212, 255, 0.4);
+        }
+
+        .btn.danger {
+            background: rgba(255, 68, 68, 0.15);
+            border-color: rgba(255, 68, 68, 0.5);
+            color: #ff6b6b;
+        }
+
+        .btn.danger:hover {
+            background: rgba(255, 68, 68, 0.3);
+            box-shadow: 0 0 20px rgba(255, 68, 68, 0.3);
+        }
+
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 12px;
+        }
+
+        input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            accent-color: #00d4ff;
+            cursor: pointer;
+        }
+
+        .checkbox-label {
+            font-size: 13px;
+            color: #cccccc;
+            cursor: pointer;
+        }
+
+        #stats {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(10, 10, 30, 0.9);
+            backdrop-filter: blur(10px);
+            padding: 16px 20px;
+            border-radius: 8px;
+            border: 1px solid rgba(0, 212, 255, 0.3);
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            z-index: 50;
+            min-width: 200px;
+        }
+
+        .stat-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 6px;
+        }
+
+        .stat-row:last-child {
+            margin-bottom: 0;
+        }
+
+        .stat-label {
+            color: #888;
+        }
+
+        .stat-value {
+            color: #00d4ff;
+            font-weight: 600;
+        }
+
+        #camera-hint {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            background: rgba(10, 10, 30, 0.8);
+            backdrop-filter: blur(10px);
+            padding: 12px 16px;
+            border-radius: 8px;
+            border: 1px solid rgba(0, 212, 255, 0.2);
+            font-size: 12px;
+            color: #aaa;
+            z-index: 50;
+            max-width: 300px;
+        }
+
+        #camera-hint strong {
+            color: #00d4ff;
+        }
+
+        .collapsible {
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .collapsible::after {
+            content: ' ▼';
+            font-size: 10px;
+            opacity: 0.7;
+            float: right;
+            transition: transform 0.2s;
+        }
+
+        .collapsible.collapsed::after {
+            transform: rotate(-90deg);
+        }
+
+        .collapsible.collapsed + .collapsible-content {
+            display: none;
+        }
+
+        .select-wrapper {
+            position: relative;
+            margin-bottom: 16px;
+        }
+
+        select {
+            width: 100%;
+            padding: 10px 12px;
+            background: rgba(0, 0, 0, 0.4);
+            border: 1px solid rgba(0, 212, 255, 0.3);
+            border-radius: 6px;
+            color: #ffffff;
+            font-size: 13px;
+            cursor: pointer;
+            outline: none;
+            appearance: none;
+        }
+
+        select:focus {
+            border-color: #00d4ff;
+            box-shadow: 0 0 10px rgba(0, 212, 255, 0.3);
+        }
+
+        .select-wrapper::after {
+            content: '▼';
+            position: absolute;
+            right: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 10px;
+            color: #00d4ff;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+    <div id="container">
+        <canvas id="canvas"></canvas>
+
+        <div id="loading">
+            <div class="spinner"></div>
+            <h2>WebGPU SPH 流体模拟</h2>
+            <p>正在初始化 WebGPU 和计算着色器...</p>
+        </div>
+
+        <div id="error">
+            <h2>❌ WebGPU 不支持</h2>
+            <p>您的浏览器不支持 WebGPU。请使用最新版本的 Chrome、Edge 或 Safari 浏览器。</p>
+            <p style="margin-top: 16px;">
+                <a href="https://caniuse.com/webgpu" target="_blank">查看支持的浏览器 →</a>
+            </p>
+        </div>
+
+        <div id="stats">
+            <div class="stat-row">
+                <span class="stat-label">FPS:</span>
+                <span class="stat-value" id="fps">0</span>
+            </div>
+            <div class="stat-row">
+                <span class="stat-label">粒子数:</span>
+                <span class="stat-value" id="particle-count">0</span>
+            </div>
+            <div class="stat-row">
+                <span class="stat-label">三角形:</span>
+                <span class="stat-value" id="triangle-count">0</span>
+            </div>
+            <div class="stat-row">
+                <span class="stat-label">模拟时间:</span>
+                <span class="stat-value" id="sim-time">0 ms</span>
+            </div>
+            <div class="stat-row">
+                <span class="stat-label">渲染时间:</span>
+                <span class="stat-value" id="render-time">0 ms</span>
+            </div>
+        </div>
+
+        <div id="ui-panel">
+            <div class="panel-section">
+                <div class="panel-title collapsible">模拟控制</div>
+                <div class="collapsible-content">
+                    <div class="button-group">
+                        <button class="btn active" id="btn-pause">⏸ 暂停</button>
+                        <button class="btn" id="btn-reset">↻ 重置</button>
+                    </div>
+                    <div class="checkbox-group">
+                        <input type="checkbox" id="show-particles" checked>
+                        <label for="show-particles" class="checkbox-label">显示粒子</label>
+                    </div>
+                    <div class="checkbox-group">
+                        <input type="checkbox" id="show-surface" checked>
+                        <label for="show-surface" class="checkbox-label">显示表面网格</label>
+                    </div>
+                    <div class="checkbox-group">
+                        <input type="checkbox" id="show-wireframe">
+                        <label for="show-wireframe" class="checkbox-label">线框模式</label>
+                    </div>
+                </div>
+            </div>
+
+            <div class="panel-section">
+                <div class="panel-title collapsible">粒子参数</div>
+                <div class="collapsible-content">
+                    <div class="control-group">
+                        <div class="control-label">
+                            <span>粒子数量</span>
+                            <span class="control-value" id="val-particle-count">50000</span>
+                        </div>
+                        <input type="range" id="slider-particles" min="1000" max="50000" step="1000" value="50000">
+                    </div>
+                    <div class="control-group">
+                        <div class="control-label">
+                            <span>粒子半径</span>
+                            <span class="control-value" id="val-particle-radius">0.025</span>
+                        </div>
+                        <input type="range" id="slider-radius" min="0.01" max="0.05" step="0.001" value="0.025">
+                    </div>
+                </div>
+            </div>
+
+            <div class="panel-section">
+                <div class="panel-title collapsible">物理参数</div>
+                <div class="collapsible-content">
+                    <div class="control-group">
+                        <div class="control-label">
+                            <span>重力 (Y轴)</span>
+                            <span class="control-value" id="val-gravity">-9.8</span>
+                        </div>
+                        <input type="range" id="slider-gravity" min="-20" max="0" step="0.1" value="-9.8">
+                    </div>
+                    <div class="control-group">
+                        <div class="control-label">
+                            <span>粘度系数</span>
+                            <span class="control-value" id="val-viscosity">0.05</span>
+                        </div>
+                        <input type="range" id="slider-viscosity" min="0" max="0.5" step="0.001" value="0.05">
+                    </div>
+                    <div class="control-group">
+                        <div class="control-label">
+                            <span>表面张力</span>
+                            <span class="control-value" id="val-surface-tension">0.01</span>
+                        </div>
+                        <input type="range" id="slider-surface" min="0" max="0.1" step="0.001" value="0.01">
+                    </div>
+                    <div class="control-group">
+                        <div class="control-label">
+                            <span>静止密度</span>
+                            <span class="control-value" id="val-rest-density">1000</span>
+                        </div>
+                        <input type="range" id="slider-density" min="500" max="2000" step="10" value="1000">
+                    </div>
+                    <div class="control-group">
+                        <div class="control-label">
+                            <span>刚度系数</span>
+                            <span class="control-value" id="val-stiffness">200</span>
+                        </div>
+                        <input type="range" id="slider-stiffness" min="50" max="500" step="1" value="200">
+                    </div>
+                </div>
+            </div>
+
+            <div class="panel-section">
+                <div class="panel-title collapsible">边界类型</div>
+                <div class="collapsible-content">
+                    <div class="select-wrapper">
+                        <select id="boundary-type">
+                            <option value="box">立方体容器</option>
+                            <option value="sphere">球形容器</option>
+                            <option value="funnel">漏斗</option>
+                            <option value="dam">堤坝决口</option>
+                        </select>
+                    </div>
+                    <div class="control-group">
+                        <div class="control-label">
+                            <span>边界反弹系数</span>
+                            <span class="control-value" id="val-restitution">0.3</span>
+                        </div>
+                        <input type="range" id="slider-restitution" min="0" max="1" step="0.01" value="0.3">
+                    </div>
+                </div>
+            </div>
+
+            <div class="panel-section">
+                <div class="panel-title collapsible">表面重建</div>
+                <div class="collapsible-content">
+                    <div class="control-group">
+                        <div class="control-label">
+                            <span>体素分辨率</span>
+                            <span class="control-value" id="val-voxel-res">64</span>
+                        </div>
+                        <input type="range" id="slider-voxel" min="32" max="96" step="8" value="64">
+                    </div>
+                    <div class="control-group">
+                        <div class="control-label">
+                            <span>等值面值</span>
+                            <span class="control-value" id="val-isovalue">0.5</span>
+                        </div>
+                        <input type="range" id="slider-isovalue" min="0.1" max="1.0" step="0.01" value="0.5">
+                    </div>
+                    <div class="checkbox-group">
+                        <input type="checkbox" id="enable-simplification" checked>
+                        <label for="enable-simplification" class="checkbox-label">启用网格简化</label>
+                    </div>
+                </div>
+            </div>
+
+            <div class="panel-section">
+                <div class="panel-title collapsible">相机控制</div>
+                <div class="collapsible-content">
+                    <div class="button-group">
+                        <button class="btn active" id="btn-orbit">轨道模式</button>
+                        <button class="btn" id="btn-fps">第一人称</button>
+                    </div>
+                    <div class="control-group">
+                        <div class="control-label">
+                            <span>移动速度</span>
+                            <span class="control-value" id="val-move-speed">2.0</span>
+                        </div>
+                        <input type="range" id="slider-move-speed" min="0.5" max="10" step="0.1" value="2.0">
+                    </div>
+                    <div class="control-group">
+                        <div class="control-label">
+                            <span>视野 (FOV)</span>
+                            <span class="control-value" id="val-fov">60</span>
+                        </div>
+                        <input type="range" id="slider-fov" min="30" max="120" step="1" value="60">
+                    </div>
+                </div>
+            </div>
+
+            <div class="panel-section">
+                <div class="panel-title collapsible">渲染设置</div>
+                <div class="collapsible-content">
+                    <div class="checkbox-group">
+                        <input type="checkbox" id="enable-reflection" checked>
+                        <label for="enable-reflection" class="checkbox-label">实时反射</label>
+                    </div>
+                    <div class="checkbox-group">
+                        <input type="checkbox" id="enable-ssr">
+                        <label for="enable-ssr" class="checkbox-label">屏幕空间反射</label>
+                    </div>
+                    <div class="control-group">
+                        <div class="control-label">
+                            <span>水体颜色</span>
+                            <span class="control-value" id="val-water-color">#00aaff</span>
+                        </div>
+                        <input type="range" id="slider-water-color" min="0" max="360" step="1" value="200">
+                    </div>
+                    <div class="control-group">
+                        <div class="control-label">
+                            <span>金属度</span>
+                            <span class="control-value" id="val-metallic">0.1</span>
+                        </div>
+                        <input type="range" id="slider-metallic" min="0" max="1" step="0.01" value="0.1">
+                    </div>
+                    <div class="control-group">
+                        <div class="control-label">
+                            <span>粗糙度</span>
+                            <span class="control-value" id="val-roughness">0.3</span>
+                        </div>
+                        <input type="range" id="slider-roughness" min="0" max="1" step="0.01" value="0.3">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="camera-hint">
+            <strong>鼠标拖拽</strong> 旋转视角 | <strong>滚轮</strong> 缩放 | <strong>WASD</strong> 移动 (FPS模式)
+        </div>
+    </div>
+
+    <script type="module">
+        import { FluidSimulation } from './src/main.js';
+
+        async function init() {
+            const canvas = document.getElementById('canvas');
+            const loading = document.getElementById('loading');
+            const error = document.getElementById('error');
+
+            try {
+                const sim = new FluidSimulation(canvas);
+                await sim.init();
+                loading.style.display = 'none';
+                sim.start();
+            } catch (e) {
+                console.error('Initialization failed:', e);
+                loading.style.display = 'none';
+                error.style.display = 'block';
+                error.querySelector('p').textContent = e.message;
+            }
+        }
+
+        if (navigator.gpu) {
+            init();
+        } else {
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('error').style.display = 'block';
+        }
+    </script>
+</body>
+</html>

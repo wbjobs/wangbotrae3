@@ -1,0 +1,12 @@
+/target
+/wasm
+*.wasm
+*.js
+Cargo.lock
+*.mp4
+*.gif
+*.jpg
+*.png
+.DS_Store
+.vscode
+.idea

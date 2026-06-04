@@ -1,0 +1,22 @@
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+      - "3001:3001"
+    volumes:
+      - uploads_data:/app/uploads
+      - db_data:/app/data
+    environment:
+      - NODE_ENV=production
+      - PORT=3001
+      - PYTHON_PATH=python3
+    restart: unless-stopped
+
+volumes:
+  uploads_data:
+  db_data:

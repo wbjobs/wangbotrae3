@@ -1,0 +1,685 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>三维向量场可视化</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: Arial, sans-serif; overflow: hidden; background: #1a1a2e; }
+        #canvas-container { width: 100vw; height: 100vh; }
+        #ui-panel {
+            position: absolute; top: 20px; right: 20px; width: 320px;
+            background: rgba(30, 30, 50, 0.95); border-radius: 12px; padding: 20px;
+            color: #fff; z-index: 100; max-height: 90vh; overflow-y: auto;
+        }
+        #ui-panel h2 { font-size: 16px; margin-bottom: 15px; color: #00d4ff; text-align: center; }
+        .section-title { font-size: 13px; color: #888; margin: 15px 0 10px; }
+        .control-group { margin-bottom: 12px; }
+        .control-group label { display: block; margin-bottom: 5px; font-size: 13px; color: #aaa; }
+        .control-group input[type="range"] { width: 100%; height: 5px; background: #333; }
+        .value-display { float: right; color: #00d4ff; font-weight: bold; }
+        .btn {
+            width: 100%; padding: 10px; border: none; border-radius: 8px;
+            font-size: 13px; cursor: pointer; margin-top: 8px;
+        }
+        .btn-primary { background: linear-gradient(135deg, #00d4ff, #0099cc); color: #fff; }
+        .btn-danger { background: linear-gradient(135deg, #ff6b6b, #ee5a5a); color: #fff; }
+        .stat-box { background: rgba(0, 212, 255, 0.15); padding: 8px; border-radius: 6px; margin-top: 8px; text-align: center; }
+        .stat-box span { color: #00d4ff; font-weight: bold; font-size: 16px; }
+        .particle-colors { display: flex; gap: 6px; margin-top: 8px; }
+        .color-option {
+            width: 24px; height: 24px; border-radius: 50%; cursor: pointer;
+            border: 2px solid transparent;
+        }
+        .color-option.active { border-color: #fff; transform: scale(1.15); }
+        .toggle-switch { display: flex; align-items: center; justify-content: space-between; padding: 8px 0; }
+        .toggle-label { font-size: 13px; color: #aaa; }
+        .switch { position: relative; width: 44px; height: 22px; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider {
+            position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0;
+            background-color: #333; transition: .3s; border-radius: 22px;
+        }
+        .slider:before {
+            position: absolute; content: ""; height: 16px; width: 16px; left: 3px; bottom: 3px;
+            background-color: white; transition: .3s; border-radius: 50%;
+        }
+        input:checked + .slider { background-color: #00d4ff; }
+        input:checked + .slider:before { transform: translateX(22px); }
+        .mode-indicator { padding: 6px; border-radius: 6px; text-align: center; font-size: 12px; margin: 8px 0; }
+        .mode-streamline { background: rgba(0, 212, 255, 0.2); color: #00d4ff; }
+        .mode-particle { background: rgba(255, 217, 61, 0.2); color: #ffd93d; }
+        #toast-container {
+            position: fixed; top: 20px; left: 50%; transform: translateX(-50%);
+            z-index: 9999; display: flex; flex-direction: column; gap: 8px;
+        }
+        .toast { padding: 10px 20px; border-radius: 8px; color: #fff; font-size: 13px; opacity: 0; transition: all 0.3s; }
+        .toast.show { opacity: 1; }
+        .toast-error { background: linear-gradient(135deg, #ff4757, #ff6b81); }
+        .toast-success { background: linear-gradient(135deg, #2ed573, #7bed9f); }
+        .toast-info { background: linear-gradient(135deg, #00d4ff, #0099cc); }
+        #info {
+            position: absolute; bottom: 20px; left: 20px;
+            background: rgba(30, 30, 50, 0.9); padding: 12px 18px; border-radius: 10px;
+            color: #fff; font-size: 12px; z-index: 100;
+        }
+        .particle-list { max-height: 150px; overflow-y: auto; margin-top: 10px; }
+        .particle-item {
+            display: flex; align-items: center; padding: 6px 10px;
+            background: rgba(255,255,255,0.05); border-radius: 6px; margin-bottom: 4px;
+            justify-content: space-between;
+        }
+        .particle-item .particle-dot { width: 12px; height: 12px; border-radius: 50%; }
+        .particle-item button {
+            background: #ff6b6b; border: none; color: white; padding: 3px 8px;
+            border-radius: 4px; cursor: pointer; font-size: 11px;
+        }
+    </style>
+</head>
+<body>
+    <div id="canvas-container"></div>
+    <div id="toast-container"></div>
+    
+    <div id="ui-panel">
+        <h2>⚡ 向量场可视化</h2>
+        <div class="mode-indicator mode-streamline" id="mode-indicator">🎯 模式：流线追踪</div>
+        
+        <div class="section-title">流线控制</div>
+        <div class="control-group">
+            <label>积分步长 <span class="value-display" id="step-size-value">0.1</span></label>
+            <input type="range" id="step-size" min="0.01" max="0.5" step="0.01" value="0.1">
+        </div>
+        <div class="control-group">
+            <label>最大步数 <span class="value-display" id="max-steps-value">50</span></label>
+            <input type="range" id="max-steps" min="10" max="200" step="10" value="50">
+        </div>
+        <div class="control-group">
+            <label>流线数量限制 <span class="value-display" id="max-streamlines-value">10</span></label>
+            <input type="range" id="max-streamlines" min="1" max="50" step="1" value="10">
+        </div>
+        
+        <button class="btn btn-primary" id="toggle-mode">🔄 切换到粒子模式</button>
+        <button class="btn btn-danger" id="clear-streamlines">🗑️ 清除所有流线</button>
+        <div class="stat-box">流线数量: <span id="streamline-count">0</span></div>
+
+        <div class="section-title">粒子追踪</div>
+        <div class="toggle-switch">
+            <span class="toggle-label">显示场线方向动画</span>
+            <label class="switch">
+                <input type="checkbox" id="direction-animation">
+                <span class="slider"></span>
+            </label>
+        </div>
+        <div class="control-group">
+            <label>粒子速度 <span class="value-display" id="particle-speed-value">1.0</span></label>
+            <input type="range" id="particle-speed" min="0.1" max="3.0" step="0.1" value="1.0">
+        </div>
+        <div class="control-group">
+            <label>粒子颜色</label>
+            <div class="particle-colors" id="particle-colors">
+                <div class="color-option active" style="background: #ff6b6b;" data-color="#ff6b6b"></div>
+                <div class="color-option" style="background: #4ecdc4;" data-color="#4ecdc4"></div>
+                <div class="color-option" style="background: #ffd93d;" data-color="#ffd93d"></div>
+                <div class="color-option" style="background: #a29bfe;" data-color="#a29bfe"></div>
+                <div class="color-option" style="background: #fd79a8;" data-color="#fd79a8"></div>
+                <div class="color-option" style="background: #00d4ff;" data-color="#00d4ff"></div>
+            </div>
+        </div>
+        <button class="btn btn-danger" id="clear-particles">🗑️ 清除所有粒子</button>
+        <div class="stat-box">粒子数量: <span id="particle-count">0</span></div>
+        <div class="particle-list" id="particle-list"></div>
+    </div>
+    
+    <div id="info">
+        <p><strong>操作说明:</strong></p>
+        <p>• 左键拖动: 旋转视角</p>
+        <p>• 右键拖动: 平移</p>
+        <p>• 滚轮: 缩放</p>
+        <p>• 流线模式: 点击场景添加流线</p>
+        <p>• 粒子模式: 点击流线添加粒子</p>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.5.4/socket.io.js"></script>
+    <script>
+        var scene, camera, renderer, controls;
+        var streamlineLines = [];
+        var streamlineData = [];
+        var streamlineMarkers = [];
+        var streamlineIds = [];
+        var particles = [];
+        var particleMeshes = [];
+        var particleSpeed = 1.0;
+        var selectedParticleColor = '#ff6b6b';
+        var particleIdCounter = 0;
+        var addMode = 'streamline';
+        var stepSize = 0.1;
+        var maxSteps = 50;
+        var maxStreamlines = 10;
+        var socket;
+        var isMouseDown = false;
+        var mouseDownPos = { x: 0, y: 0 };
+        var activeComputations = 0;
+        var directionAnimationEnabled = false;
+        var directionArrows = [];
+        var animationTime = 0;
+        var lastTimestamp = 0;
+
+        function showToast(message, type) {
+            var container = document.getElementById('toast-container');
+            var toast = document.createElement('div');
+            toast.className = 'toast toast-' + type;
+            toast.textContent = message;
+            container.appendChild(toast);
+            setTimeout(function() { toast.classList.add('show'); }, 10);
+            setTimeout(function() {
+                toast.classList.remove('show');
+                setTimeout(function() { container.removeChild(toast); }, 300);
+            }, 3000);
+        }
+
+        function init() {
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x1a1a2e);
+
+            camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.set(10, 8, 12);
+
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            document.getElementById('canvas-container').appendChild(renderer.domElement);
+
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.05;
+
+            var ambientLight = new THREE.AmbientLight(0x404040, 0.6);
+            scene.add(ambientLight);
+
+            var directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            directionalLight.position.set(10, 20, 10);
+            scene.add(directionalLight);
+
+            addAxes();
+            addBoundingBox();
+            loadVectorField();
+            initSocket();
+            setupEventListeners();
+            animate();
+        }
+
+        function addAxes() {
+            var axesHelper = new THREE.AxesHelper(8);
+            scene.add(axesHelper);
+        }
+
+        function addBoundingBox() {
+            var geometry = new THREE.BoxGeometry(10, 10, 10);
+            var edges = new THREE.EdgesGeometry(geometry);
+            var line = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: 0x444466, opacity: 0.5, transparent: true }));
+            scene.add(line);
+        }
+
+        function jetColor(t) {
+            t = Math.max(0, Math.min(1, t));
+            var r, g, b;
+            if (t < 0.125) { r = 0; g = 0; b = 0.5 + t * 4; }
+            else if (t < 0.375) { r = 0; g = (t - 0.125) * 4; b = 1; }
+            else if (t < 0.625) { r = (t - 0.375) * 4; g = 1; b = 1 - (t - 0.375) * 4; }
+            else if (t < 0.875) { r = 1; g = 1 - (t - 0.625) * 4; b = 0; }
+            else { r = 1 - (t - 0.875) * 4; g = 0; b = 0; }
+            return new THREE.Color(r, g, b);
+        }
+
+        function loadVectorField() {
+            fetch('/api/vector_field')
+                .then(function(response) { return response.json(); })
+                .then(function(data) {
+                    var vectors = data.vectors;
+                    var maxMagnitude = 0;
+                    vectors.forEach(function(v) {
+                        maxMagnitude = Math.max(maxMagnitude, v.magnitude);
+                    });
+                    createInstancedArrows(vectors, maxMagnitude);
+                    createDirectionAnimationArrows(vectors, maxMagnitude);
+                });
+        }
+
+        function createInstancedArrows(vectors, maxMagnitude) {
+            var filteredVectors = vectors.filter(function(v) {
+                var vec = new THREE.Vector3(v.vector[0], v.vector[1], v.vector[2]);
+                return vec.length() > 0.001;
+            });
+
+            var count = filteredVectors.length;
+            if (count === 0) return;
+
+            var shaftGeometry = new THREE.CylinderGeometry(0.015, 0.015, 1, 6);
+            shaftGeometry.translate(0, 0.5, 0);
+            var headGeometry = new THREE.ConeGeometry(0.04, 0.12, 6);
+            headGeometry.translate(0, 0.06, 0);
+            var shaftMaterial = new THREE.MeshPhongMaterial({ vertexColors: false });
+            var headMaterial = new THREE.MeshPhongMaterial({ vertexColors: false });
+
+            var shaftMesh = new THREE.InstancedMesh(shaftGeometry, shaftMaterial, count);
+            var headMesh = new THREE.InstancedMesh(headGeometry, headMaterial, count);
+
+            var dummy = new THREE.Object3D();
+            var up = new THREE.Vector3(0, 1, 0);
+
+            for (var i = 0; i < count; i++) {
+                var v = filteredVectors[i];
+                var pos = new THREE.Vector3(v.position[0], v.position[1], v.position[2]);
+                var vec = new THREE.Vector3(v.vector[0], v.vector[1], v.vector[2]);
+                var length = Math.min(0.8, vec.length() * 2);
+                var direction = vec.clone().normalize();
+
+                dummy.position.copy(pos);
+                dummy.quaternion.setFromUnitVectors(up, direction);
+                dummy.scale.set(1, length, 1);
+                dummy.updateMatrix();
+                shaftMesh.setMatrixAt(i, dummy.matrix);
+
+                dummy.position.copy(pos);
+                dummy.quaternion.setFromUnitVectors(up, direction);
+                dummy.scale.set(1, 1, 1);
+                dummy.position.add(direction.clone().multiplyScalar(length));
+                dummy.updateMatrix();
+                headMesh.setMatrixAt(i, dummy.matrix);
+
+                var normalizedMag = Math.min(1, v.magnitude / maxMagnitude * 5);
+                var color = jetColor(normalizedMag);
+                shaftMesh.setColorAt(i, color);
+                headMesh.setColorAt(i, color);
+            }
+
+            shaftMesh.instanceMatrix.needsUpdate = true;
+            headMesh.instanceMatrix.needsUpdate = true;
+            if (shaftMesh.instanceColor) shaftMesh.instanceColor.needsUpdate = true;
+            if (headMesh.instanceColor) headMesh.instanceColor.needsUpdate = true;
+
+            scene.add(shaftMesh);
+            scene.add(headMesh);
+        }
+
+        function createDirectionAnimationArrows(vectors, maxMagnitude) {
+            var filteredVectors = vectors.filter(function(v) {
+                var vec = new THREE.Vector3(v.vector[0], v.vector[1], v.vector[2]);
+                return vec.length() > 0.001;
+            });
+
+            var count = filteredVectors.length;
+            if (count === 0) return;
+
+            var arrowGeometry = new THREE.ConeGeometry(0.06, 0.15, 6);
+            var arrowMaterial = new THREE.MeshPhongMaterial({ color: 0xffffff, transparent: true, opacity: 0.8 });
+            var arrowsMesh = new THREE.InstancedMesh(arrowGeometry, arrowMaterial, count);
+
+            var dummy = new THREE.Object3D();
+            var up = new THREE.Vector3(0, 1, 0);
+
+            for (var i = 0; i < count; i++) {
+                var v = filteredVectors[i];
+                var pos = new THREE.Vector3(v.position[0], v.position[1], v.position[2]);
+                var vec = new THREE.Vector3(v.vector[0], v.vector[1], v.vector[2]);
+                var direction = vec.clone().normalize();
+
+                dummy.position.copy(pos);
+                dummy.quaternion.setFromUnitVectors(up, direction);
+                dummy.updateMatrix();
+                arrowsMesh.setMatrixAt(i, dummy.matrix);
+            }
+
+            arrowsMesh.instanceMatrix.needsUpdate = true;
+            arrowsMesh.visible = false;
+            scene.add(arrowsMesh);
+            directionArrows.push(arrowsMesh);
+        }
+
+        function updateDirectionAnimation(deltaTime) {
+            if (!directionAnimationEnabled || directionArrows.length === 0) return;
+            animationTime += deltaTime * 0.5;
+            var pulse = (Math.sin(animationTime) + 1) / 2;
+            for (var i = 0; i < directionArrows.length; i++) {
+                directionArrows[i].material.opacity = 0.3 + pulse * 0.5;
+                directionArrows[i].material.needsUpdate = true;
+            }
+        }
+
+        function initSocket() {
+            socket = io();
+            socket.on('connect', function() { console.log('WebSocket connected'); });
+
+            socket.on('streamline_progress', function(data) {
+                var progress = (data.step / data.total) * 100;
+                var phase = data.phase === 'forward' ? '正向' : '反向';
+                document.getElementById('progress-fill').style.width = progress + '%';
+            });
+
+            socket.on('streamline_complete', function(data) {
+                activeComputations--;
+                createStreamline(data.points);
+                if (activeComputations <= 0) {
+                    activeComputations = 0;
+                }
+            });
+
+            socket.on('streamline_registered', function(data) {
+                streamlineIds.push(data.streamline_id);
+            });
+
+            socket.on('streamline_error', function(data) {
+                activeComputations--;
+                showToast(data.message, 'error');
+            });
+
+            socket.on('particle_trajectory', function(data) {
+                startParticleAnimation(data.trajectory, data.fps);
+            });
+
+            socket.on('particle_error', function(data) {
+                showToast(data.message, 'error');
+            });
+        }
+
+        function createStreamline(points) {
+            if (points.length < 2) return;
+
+            while (streamlineLines.length >= maxStreamlines) {
+                var oldLine = streamlineLines.shift();
+                scene.remove(oldLine);
+                oldLine.geometry.dispose();
+                oldLine.material.dispose();
+                var oldMarker = streamlineMarkers.shift();
+                if (oldMarker) {
+                    scene.remove(oldMarker);
+                    oldMarker.geometry.dispose();
+                    oldMarker.material.dispose();
+                }
+                streamlineData.shift();
+                streamlineIds.shift();
+            }
+
+            var geometry = new THREE.BufferGeometry();
+            var positions = new Float32Array(points.length * 3);
+            var colors = new Float32Array(points.length * 3);
+
+            for (var i = 0; i < points.length; i++) {
+                positions[i * 3] = points[i][0];
+                positions[i * 3 + 1] = points[i][1];
+                positions[i * 3 + 2] = points[i][2];
+                var t = i / (points.length - 1);
+                var color = new THREE.Color();
+                color.lerpColors(new THREE.Color(0xff0000), new THREE.Color(0x0000ff), t);
+                colors[i * 3] = color.r;
+                colors[i * 3 + 1] = color.g;
+                colors[i * 3 + 2] = color.b;
+            }
+
+            geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+            geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+
+            var material = new THREE.LineBasicMaterial({
+                vertexColors: true, linewidth: 3, transparent: true, opacity: 0.9
+            });
+
+            var line = new THREE.Line(geometry, material);
+            line.userData = { points: points };
+            scene.add(line);
+            streamlineLines.push(line);
+            streamlineData.push(points);
+
+            var seedIndex = Math.floor(points.length / 2);
+            var seedMarker = new THREE.Mesh(
+                new THREE.SphereGeometry(0.12, 8, 8),
+                new THREE.MeshBasicMaterial({ color: 0xffff00 })
+            );
+            seedMarker.position.set(points[seedIndex][0], points[seedIndex][1], points[seedIndex][2]);
+            scene.add(seedMarker);
+            streamlineMarkers.push(seedMarker);
+
+            socket.emit('register_streamline', { points: points });
+            document.getElementById('streamline-count').textContent = streamlineLines.length;
+        }
+
+        function startParticleAnimation(trajectory, fps) {
+            var particleId = particleIdCounter++;
+            var particleGeo = new THREE.SphereGeometry(0.15, 12, 12);
+            var particleMat = new THREE.MeshBasicMaterial({ color: selectedParticleColor });
+            var particleMesh = new THREE.Mesh(particleGeo, particleMat);
+            scene.add(particleMesh);
+
+            var particle = {
+                id: particleId, mesh: particleMesh, trajectory: trajectory,
+                currentFrame: 0, speed: particleSpeed, color: selectedParticleColor
+            };
+
+            particles.push(particle);
+            particleMeshes.push(particleMesh);
+            updateParticleList();
+            document.getElementById('particle-count').textContent = particles.length;
+            showToast('粒子 #' + (particleId + 1) + ' 已添加', 'success');
+        }
+
+        function updateParticleList() {
+            var list = document.getElementById('particle-list');
+            list.innerHTML = '';
+            for (var idx = 0; idx < particles.length; idx++) {
+                var p = particles[idx];
+                var item = document.createElement('div');
+                item.className = 'particle-item';
+                item.innerHTML = '<div style="display:flex;align-items:center;gap:8px;"><div class="particle-dot" style="background:' + p.color + '"></div><span style="font-size:12px;">粒子 #' + (idx + 1) + '</span></div><button onclick="removeParticle(' + idx + ')">删除</button>';
+                list.appendChild(item);
+            }
+        }
+
+        window.removeParticle = function(index) {
+            if (index >= 0 && index < particles.length) {
+                var p = particles[index];
+                scene.remove(p.mesh);
+                p.mesh.geometry.dispose();
+                p.mesh.material.dispose();
+                particles.splice(index, 1);
+                particleMeshes.splice(index, 1);
+                updateParticleList();
+                document.getElementById('particle-count').textContent = particles.length;
+            }
+        };
+
+        function updateParticles(deltaTime) {
+            for (var i = 0; i < particles.length; i++) {
+                var p = particles[i];
+                var frameStep = p.speed * deltaTime * 60;
+                p.currentFrame += frameStep;
+                var frameIndex = Math.floor(p.currentFrame) % p.trajectory.length;
+                if (frameIndex >= 0 && frameIndex < p.trajectory.length) {
+                    var pos = p.trajectory[frameIndex];
+                    p.mesh.position.set(pos[0], pos[1], pos[2]);
+                }
+            }
+        }
+
+        function setupEventListeners() {
+            window.addEventListener('resize', onWindowResize);
+
+            renderer.domElement.addEventListener('mousedown', function(e) {
+                isMouseDown = true;
+                mouseDownPos = { x: e.clientX, y: e.clientY };
+            });
+
+            renderer.domElement.addEventListener('mouseup', function(e) {
+                if (isMouseDown) {
+                    var dx = e.clientX - mouseDownPos.x;
+                    var dy = e.clientY - mouseDownPos.y;
+                    if (Math.sqrt(dx * dx + dy * dy) < 5) {
+                        onCanvasClick(e);
+                    }
+                }
+                isMouseDown = false;
+            });
+
+            document.getElementById('step-size').addEventListener('input', function(e) {
+                stepSize = parseFloat(e.target.value);
+                document.getElementById('step-size-value').textContent = stepSize.toFixed(2);
+            });
+
+            document.getElementById('max-steps').addEventListener('input', function(e) {
+                maxSteps = parseInt(e.target.value);
+                document.getElementById('max-steps-value').textContent = maxSteps;
+            });
+
+            document.getElementById('max-streamlines').addEventListener('input', function(e) {
+                maxStreamlines = parseInt(e.target.value);
+                document.getElementById('max-streamlines-value').textContent = maxStreamlines;
+            });
+
+            document.getElementById('particle-speed').addEventListener('input', function(e) {
+                particleSpeed = parseFloat(e.target.value);
+                document.getElementById('particle-speed-value').textContent = particleSpeed.toFixed(1);
+            });
+
+            var colorOptions = document.querySelectorAll('.color-option');
+            for (var i = 0; i < colorOptions.length; i++) {
+                colorOptions[i].addEventListener('click', function() {
+                    for (var j = 0; j < colorOptions.length; j++) {
+                        colorOptions[j].classList.remove('active');
+                    }
+                    this.classList.add('active');
+                    selectedParticleColor = this.dataset.color;
+                });
+            }
+
+            document.getElementById('toggle-mode').addEventListener('click', function() {
+                addMode = addMode === 'streamline' ? 'particle' : 'streamline';
+                var indicator = document.getElementById('mode-indicator');
+                var btn = document.getElementById('toggle-mode');
+                if (addMode === 'particle') {
+                    indicator.textContent = '✨ 模式：粒子追踪';
+                    indicator.className = 'mode-indicator mode-particle';
+                    btn.textContent = '🔄 切换到流线模式';
+                    showToast('已切换到粒子模式，点击流线添加粒子', 'info');
+                } else {
+                    indicator.textContent = '🎯 模式：流线追踪';
+                    indicator.className = 'mode-indicator mode-streamline';
+                    btn.textContent = '🔄 切换到粒子模式';
+                    showToast('已切换到流线模式，点击场景添加流线', 'info');
+                }
+            });
+
+            document.getElementById('clear-streamlines').addEventListener('click', function() {
+                for (var i = 0; i < streamlineLines.length; i++) {
+                    scene.remove(streamlineLines[i]);
+                    streamlineLines[i].geometry.dispose();
+                    streamlineLines[i].material.dispose();
+                }
+                for (var i = 0; i < streamlineMarkers.length; i++) {
+                    scene.remove(streamlineMarkers[i]);
+                    streamlineMarkers[i].geometry.dispose();
+                    streamlineMarkers[i].material.dispose();
+                }
+                streamlineLines = [];
+                streamlineData = [];
+                streamlineMarkers = [];
+                streamlineIds = [];
+                document.getElementById('streamline-count').textContent = 0;
+            });
+
+            document.getElementById('clear-particles').addEventListener('click', function() {
+                for (var i = 0; i < particles.length; i++) {
+                    scene.remove(particles[i].mesh);
+                    particles[i].mesh.geometry.dispose();
+                    particles[i].mesh.material.dispose();
+                }
+                particles = [];
+                particleMeshes = [];
+                updateParticleList();
+                document.getElementById('particle-count').textContent = 0;
+                showToast('已清除所有粒子', 'info');
+            });
+
+            document.getElementById('direction-animation').addEventListener('change', function(e) {
+                directionAnimationEnabled = e.target.checked;
+                for (var i = 0; i < directionArrows.length; i++) {
+                    directionArrows[i].visible = directionAnimationEnabled;
+                }
+                showToast(directionAnimationEnabled ? '场线方向动画已开启' : '场线方向动画已关闭', 'info');
+            });
+        }
+
+        function onCanvasClick(event) {
+            var rect = renderer.domElement.getBoundingClientRect();
+            var mouse = new THREE.Vector2(
+                ((event.clientX - rect.left) / rect.width) * 2 - 1,
+                -((event.clientY - rect.top) / rect.height) * 2 + 1
+            );
+
+            var raycaster = new THREE.Raycaster();
+            raycaster.setFromCamera(mouse, camera);
+
+            if (addMode === 'particle') {
+                var intersects = raycaster.intersectObjects(streamlineLines);
+                if (intersects.length > 0) {
+                    var hit = intersects[0];
+                    var lineIndex = streamlineLines.indexOf(hit.object);
+                    if (lineIndex >= 0 && lineIndex < streamlineIds.length) {
+                        var streamlineId = streamlineIds[lineIndex];
+                        socket.emit('trace_particle', {
+                            streamline_id: streamlineId,
+                            start_t: 0.5,
+                            speed: particleSpeed,
+                            duration: 5.0,
+                            fps: 60
+                        });
+                    }
+                } else {
+                    showToast('请点击已有的流线来添加粒子', 'info');
+                }
+                return;
+            }
+
+            var plane = new THREE.Plane(new THREE.Vector3(0, 0, 1), 0);
+            var intersectPoint = new THREE.Vector3();
+            raycaster.ray.intersectPlane(plane, intersectPoint);
+
+            if (intersectPoint) {
+                var clampedPoint = intersectPoint.clone().clamp(
+                    new THREE.Vector3(-5, -5, -5),
+                    new THREE.Vector3(5, 5, 5)
+                );
+                var dist = clampedPoint.length();
+                if (dist < 0.2) {
+                    showToast('种子点距奇点过近，请选择其他位置', 'error');
+                    return;
+                }
+                activeComputations++;
+                socket.emit('start_streamline', {
+                    seed_point: [clampedPoint.x, clampedPoint.y, clampedPoint.z],
+                    step_size: stepSize,
+                    max_steps: maxSteps
+                });
+            }
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        function animate(timestamp) {
+            requestAnimationFrame(animate);
+            var deltaTime = lastTimestamp ? (timestamp - lastTimestamp) / 1000 : 0;
+            lastTimestamp = timestamp;
+            controls.update();
+            updateParticles(deltaTime);
+            updateDirectionAnimation(deltaTime);
+            renderer.render(scene, camera);
+        }
+
+        init();
+    </script>
+</body>
+</html>

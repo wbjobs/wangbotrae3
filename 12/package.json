@@ -1,0 +1,28 @@
+{
+  "name": "p2p-chunk-distributor",
+  "version": "1.0.0",
+  "description": "P2P-based file chunk distribution acceleration backend service",
+  "main": "src/index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js"
+  },
+  "dependencies": {
+    "@libp2p/tcp": "^9.0.21",
+    "@libp2p/mdns": "^10.0.21",
+    "@libp2p/autonat": "^2.0.21",
+    "@libp2p/identify": "^2.0.21",
+    "@libp2p/bootstrap": "^10.0.21",
+    "@libp2p/kad-dht": "^12.0.21",
+    "@chainsafe/libp2p-noise": "^17.0.0",
+    "@libp2p/yamux": "^8.0.1",
+    "@multiformats/multiaddr": "^12.3.1",
+    "better-sqlite3": "^11.7.0",
+    "express": "^4.21.0",
+    "ioredis": "^5.4.1",
+    "libp2p": "^1.0.21",
+    "multer": "^1.4.5-lts.1",
+    "uint8arrays": "^5.1.0"
+  }
+}

@@ -1,0 +1,68 @@
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg-darker: #0f1219;
+  --bg-panel: #1a1f2e;
+  --bg-card: #242b3d;
+  --accent: #00d4aa;
+  --accent-hover: #00b894;
+  --warning: #f59e0b;
+  --error: #ef4444;
+  --text-primary: #e2e8f0;
+  --text-secondary: #94a3b8;
+  --font-mono: 'JetBrains Mono', monospace;
+  --font-body: 'Noto Sans SC', sans-serif;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--bg-card) transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: var(--bg-card);
+  border-radius: 3px;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--text-secondary);
+}
+
+body {
+  margin: 0;
+  background: var(--bg-darker);
+  color: var(--text-primary);
+  font-family: var(--font-body);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+input[type='range'] {
+  background: transparent;
+}
+
+input[type='range']::-webkit-slider-runnable-track {
+  background: var(--bg-card);
+  border-radius: 2px;
+  height: 4px;
+}
+
+input[type='range']::-moz-range-track {
+  background: var(--bg-card);
+  border-radius: 2px;
+  height: 4px;
+}

@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>文件上传 - P2P传输</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
+    }
+    .container {
+      background: white;
+      border-radius: 16px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+      padding: 40px;
+      max-width: 600px;
+      width: 100%;
+    }
+    h1 {
+      color: #333;
+      margin-bottom: 30px;
+      text-align: center;
+      font-size: 28px;
+    }
+    .upload-area {
+      border: 3px dashed #667eea;
+      border-radius: 12px;
+      padding: 60px 20px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.3s;
+      margin-bottom: 20px;
+    }
+    .upload-area:hover, .upload-area.dragover {
+      border-color: #764ba2;
+      background: #f8f9ff;
+    }
+    .upload-area svg {
+      width: 80px;
+      height: 80px;
+      fill: #667eea;
+      margin-bottom: 15px;
+    }
+    .upload-area p {
+      color: #666;
+      font-size: 16px;
+    }
+    .upload-area .hint {
+      color: #999;
+      font-size: 14px;
+      margin-top: 10px;
+    }
+    #fileInput {
+      display: none;
+    }
+    .file-info {
+      background: #f8f9ff;
+      border-radius: 8px;
+      padding: 15px;
+      margin-bottom: 20px;
+      display: none;
+    }
+    .file-info.show {
+      display: block;
+    }
+    .file-info .name {
+      font-weight: 600;
+      color: #333;
+      margin-bottom: 5px;
+    }
+    .file-info .size {
+      color: #666;
+      font-size: 14px;
+    }
+    .session-code {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border-radius: 8px;
+      padding: 20px;
+      text-align: center;
+      margin-bottom: 20px;
+      display: none;
+    }
+    .session-code.show {
+      display: block;
+    }
+    .session-code .label {
+      font-size: 14px;
+      opacity: 0.9;
+      margin-bottom: 10px;
+    }
+    .session-code .code {
+      font-size: 36px;
+      font-weight: bold;
+      letter-spacing: 8px;
+      font-family: 'Courier New', monospace;
+    }
+    .session-code .copy-btn {
+      margin-top: 15px;
+      background: rgba(255,255,255,0.2);
+      border: none;
+      color: white;
+      padding: 8px 20px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 14px;
+      transition: background 0.3s;
+    }
+    .session-code .copy-btn:hover {
+      background: rgba(255,255,255,0.3);
+    }
+    .progress-container {
+      margin-bottom: 20px;
+      display: none;
+    }
+    .progress-container.show {
+      display: block;
+    }
+    .progress-header {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 10px;
+      font-size: 14px;
+      color: #666;
+    }
+    .progress-bar {
+      height: 12px;
+      background: #e0e0e0;
+      border-radius: 6px;
+      overflow: hidden;
+    }
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #667eea, #764ba2);
+      border-radius: 6px;
+      transition: width 0.3s;
+      width: 0%;
+    }
+    .status {
+      text-align: center;
+      padding: 15px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      display: none;
+    }
+    .status.show {
+      display: block;
+    }
+    .status.waiting {
+      background: #fff3cd;
+      color: #856404;
+    }
+    .status.connected {
+      background: #d4edda;
+      color: #155724;
+    }
+    .status.error {
+      background: #f8d7da;
+      color: #721c24;
+    }
+    .status.complete {
+      background: #d4edda;
+      color: #155724;
+    }
+    .connection-type {
+      font-size: 12px;
+      margin-top: 5px;
+      opacity: 0.8;
+    }
+    .btn {
+      width: 100%;
+      padding: 15px;
+      border: none;
+      border-radius: 8px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s;
+      display: none;
+    }
+    .btn.show {
+      display: block;
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+    }
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+    }
+    .btn:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      transform: none;
+    }
+    .nav {
+      text-align: center;
+      margin-top: 20px;
+    }
+    .nav a {
+      color: #667eea;
+      text-decoration: none;
+      font-size: 14px;
+    }
+    .nav a:hover {
+      text-decoration: underline;
+    }
+    .md5-calculating {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      padding: 10px;
+      background: #e7f3ff;
+      border-radius: 6px;
+      margin-bottom: 15px;
+      display: none;
+    }
+    .md5-calculating.show {
+      display: flex;
+    }
+    .spinner {
+      width: 20px;
+      height: 20px;
+      border: 2px solid #667eea;
+      border-top-color: transparent;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    .quality-panel {
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 20px;
+      display: none;
+    }
+    .quality-panel.show {
+      display: block;
+    }
+    .quality-panel h3 {
+      color: #fff;
+      margin-bottom: 15px;
+      font-size: 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .quality-panel h3::before {
+      content: '📡';
+    }
+    .quality-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+    .quality-item {
+      background: rgba(255,255,255,0.1);
+      border-radius: 8px;
+      padding: 12px;
+    }
+    .quality-item .label {
+      color: #8892b0;
+      font-size: 12px;
+      margin-bottom: 4px;
+    }
+    .quality-item .value {
+      color: #fff;
+      font-size: 18px;
+      font-weight: 600;
+      font-family: 'Courier New', monospace;
+    }
+    .quality-item .value.good {
+      color: #4ade80;
+    }
+    .quality-item .value.warning {
+      color: #fbbf24;
+    }
+    .quality-item .value.bad {
+      color: #f87171;
+    }
+    .quality-score {
+      grid-column: span 2;
+      text-align: center;
+    }
+    .quality-score .score-circle {
+      width: 80px;
+      height: 80px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 10px;
+      font-size: 24px;
+      font-weight: bold;
+      position: relative;
+    }
+    .quality-score .score-circle::before {
+      content: '';
+      position: absolute;
+      inset: -4px;
+      border-radius: 50%;
+      background: conic-gradient(#4ade80 var(--score), #333 0);
+      z-index: -1;
+      filter: blur(2px);
+    }
+    .quality-score .score-circle span {
+      background: #1a1a2e;
+      width: 72px;
+      height: 72px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .channel-badge {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    .channel-badge.webrtc {
+      background: linear-gradient(135deg, #4ade80, #22c55e);
+      color: #052e16;
+    }
+    .channel-badge.relay {
+      background: linear-gradient(135deg, #60a5fa, #3b82f6);
+      color: #1e3a8a;
+    }
+    .channel-badge.probing {
+      background: linear-gradient(135deg, #fbbf24, #f59e0b);
+      color: #78350f;
+    }
+    .probing-status {
+      color: #8892b0;
+      font-size: 13px;
+      text-align: center;
+      padding: 10px;
+      grid-column: span 2;
+    }
+    .probe-progress {
+      display: flex;
+      gap: 4px;
+      justify-content: center;
+      margin-top: 8px;
+    }
+    .probe-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #333;
+      transition: all 0.3s;
+    }
+    .probe-dot.active {
+      background: #fbbf24;
+      box-shadow: 0 0 10px #fbbf24;
+    }
+    .probe-dot.complete {
+      background: #4ade80;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>📤 上传文件</h1>
+    
+    <div class="upload-area" id="uploadArea">
+      <svg viewBox="0 0 24 24">
+        <path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM14 13v4h-4v-4H7l5-5 5 5h-3z"/>
+      </svg>
+      <p>点击或拖拽文件到此处上传</p>
+      <p class="hint">最大支持 500MB 文件</p>
+    </div>
+    <input type="file" id="fileInput">
+    
+    <div class="md5-calculating" id="md5Calculating">
+      <div class="spinner"></div>
+      <span>正在计算文件校验和...</span>
+    </div>
+    
+    <div class="file-info" id="fileInfo">
+      <div class="name" id="fileName"></div>
+      <div class="size" id="fileSize"></div>
+    </div>
+    
+    <button class="btn btn-primary show" id="createSessionBtn" disabled>生成会话码</button>
+    
+    <div class="session-code" id="sessionCode">
+      <div class="label">分享此会话码给下载者</div>
+      <div class="code" id="codeDisplay"></div>
+      <button class="copy-btn" id="copyBtn">复制</button>
+    </div>
+    
+    <div class="status" id="status"></div>
+    
+    <div class="quality-panel" id="qualityPanel">
+      <h3>链路质量监控</h3>
+      <div class="quality-grid">
+        <div class="quality-item">
+          <div class="label">当前通道</div>
+          <div class="value"><span class="channel-badge probing" id="channelBadge">探测中</span></div>
+        </div>
+        <div class="quality-item">
+          <div class="label">传输速度</div>
+          <div class="value" id="speedValue">-- KB/s</div>
+        </div>
+        <div class="quality-item">
+          <div class="label">RTT 延迟</div>
+          <div class="value" id="rttValue">-- ms</div>
+        </div>
+        <div class="quality-item">
+          <div class="label">丢包率</div>
+          <div class="value" id="lossValue">-- %</div>
+        </div>
+        <div class="quality-item quality-score">
+          <div class="score-circle" id="scoreCircle" style="--score: 0%">
+            <span id="scoreValue">--</span>
+          </div>
+          <div class="label">通道质量评分</div>
+        </div>
+        <div class="probing-status" id="probingStatus">
+          <span id="probingText">正在进行链路质量探测...</span>
+          <div class="probe-progress" id="probeProgress"></div>
+        </div>
+      </div>
+    </div>
+    
+    <div class="progress-container" id="progressContainer">
+      <div class="progress-header">
+        <span>传输进度</span>
+        <span id="progressText">0%</span>
+      </div>
+      <div class="progress-bar">
+        <div class="progress-fill" id="progressFill"></div>
+      </div>
+    </div>
+    
+    <div class="nav">
+      <a href="download.html">去下载页面 →</a>
+    </div>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="spark-md5.min.js"></script>
+  <script src="uploader.js"></script>
+</body>
+</html>

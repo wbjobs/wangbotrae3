@@ -1,0 +1,5 @@
+PyQt5>=5.15.0
+pySMART>=1.0.0
+psutil>=5.8.0
+matplotlib>=3.4.0
+numpy>=1.21.0

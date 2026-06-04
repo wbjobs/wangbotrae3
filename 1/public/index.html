@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>分布式实时协作乐谱编辑与同步演奏系统</title>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+    <div id="app">
+        <header class="header">
+            <h1>🎵 音乐协作平台</h1>
+            <div id="user-info" class="user-info"></div>
+        </header>
+
+        <main class="main">
+            <div id="login-view" class="view active">
+                <div class="login-container">
+                    <h2>欢迎使用音乐协作平台</h2>
+                    <p>基于WebRTC与MQTT的分布式实时协作系统</p>
+                    
+                    <div class="login-form">
+                        <div class="form-group">
+                            <label for="user-name">您的姓名</label>
+                            <input type="text" id="user-name" placeholder="请输入姓名">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>身份</label>
+                            <div class="role-selector">
+                                <button class="role-btn active" data-role="teacher">
+                                    👨‍🏫 教师
+                                </button>
+                                <button class="role-btn" data-role="student">
+                                    👨‍🎓 学生
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <button id="login-btn" class="btn btn-primary">
+                            进入系统
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="dashboard-view" class="view">
+                <div class="dashboard">
+                    <div class="dashboard-sidebar">
+                        <div id="teacher-panel" class="panel">
+                            <h3>教师面板</h3>
+                            
+                            <div class="panel-section">
+                                <h4>创建新乐谱</h4>
+                                <div class="form-group">
+                                    <label for="score-title">乐谱标题</label>
+                                    <input type="text" id="score-title" placeholder="请输入乐谱标题">
+                                </div>
+                                <button id="create-score-btn" class="btn btn-primary">
+                                    创建乐谱
+                                </button>
+                            </div>
+                            
+                            <div class="panel-section">
+                                <h4>我的乐谱</h4>
+                                <div id="my-scores" class="score-list"></div>
+                            </div>
+                            
+                            <div class="panel-section">
+                                <h4>进行中的会话</h4>
+                                <div id="active-sessions" class="session-list"></div>
+                            </div>
+                            
+                            <div class="panel-section">
+                                <h4>历史会话回放</h4>
+                                <button id="show-history-btn" class="btn btn-secondary" style="width: 100%;">
+                                    📹 查看历史会话
+                                </button>
+                                <div id="history-sessions" class="session-list" style="margin-top: 1rem;"></div>
+                            </div>
+                        </div>
+                        
+                        <div id="student-panel" class="panel">
+                            <h3>学生面板</h3>
+                            
+                            <div class="panel-section">
+                                <h4>加入会话</h4>
+                                <div class="form-group">
+                                    <label for="invite-code">邀请码</label>
+                                    <input type="text" id="invite-code" placeholder="请输入8位邀请码" maxlength="8">
+                                </div>
+                                <button id="join-session-btn" class="btn btn-primary">
+                                    加入会话
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="dashboard-main">
+                        <div id="welcome-message" class="welcome-message">
+                            <h2 id="welcome-greeting">欢迎，教师！</h2>
+                            <p id="welcome-description">创建新乐谱或选择现有乐谱开始协作</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="session-view" class="view">
+                <div class="session-container">
+                    <div class="session-header">
+                        <div class="session-info">
+                            <h2 id="session-score-title">乐谱标题</h2>
+                            <div class="session-meta">
+                                <span id="session-role-badge" class="badge">教师</span>
+                                <span id="session-code" class="session-code">邀请码: <span id="invite-code-display"></span></span>
+                                <span id="session-participants" class="participants-count">参与者: 1人</span>
+                            </div>
+                        </div>
+                        
+                        <div class="session-controls">
+                            <button id="toggle-play-btn" class="btn btn-success">
+                                ▶️ 开始演奏
+                            </button>
+                            <button id="show-versions-btn" class="btn btn-secondary">
+                                📜 版本历史
+                            </button>
+                            <button id="leave-session-btn" class="btn btn-danger">
+                                🚪 离开会话
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="session-body">
+                        <div class="editor-section">
+                            <div class="editor-toolbar" id="editor-toolbar">
+                                <div class="toolbar-group">
+                                    <label>拍号:</label>
+                                    <select id="time-signature-beats">
+                                        <option value="2">2</option>
+                                        <option value="3">3</option>
+                                        <option value="4" selected>4</option>
+                                        <option value="6">6</option>
+                                    </select>
+                                    <span>/</span>
+                                    <select id="time-signature-type">
+                                        <option value="4" selected>4</option>
+                                        <option value="8">8</option>
+                                    </select>
+                                    <button id="apply-time-signature-btn" class="btn btn-sm btn-primary">应用</button>
+                                </div>
+                                
+                                <div class="toolbar-group">
+                                    <label>调号:</label>
+                                    <select id="key-signature">
+                                        <option value="-3">降E大调</option>
+                                        <option value="-2">降B大调</option>
+                                        <option value="-1">F大调</option>
+                                        <option value="0" selected>C大调</option>
+                                        <option value="1">G大调</option>
+                                        <option value="2">D大调</option>
+                                        <option value="3">A大调</option>
+                                    </select>
+                                    <button id="apply-key-signature-btn" class="btn btn-sm btn-primary">应用</button>
+                                </div>
+                                
+                                <div class="toolbar-group">
+                                    <label>音符时值:</label>
+                                    <select id="note-duration">
+                                        <option value="1">全音符</option>
+                                        <option value="2">二分音符</option>
+                                        <option value="4" selected>四分音符</option>
+                                        <option value="8">八分音符</option>
+                                        <option value="16">十六分音符</option>
+                                    </select>
+                                </div>
+                                
+                                <div class="toolbar-group">
+                                    <button id="add-note-btn" class="btn btn-sm btn-success">➕ 添加音符</button>
+                                    <button id="delete-note-btn" class="btn btn-sm btn-danger">🗑️ 删除音符</button>
+                                    <button id="add-rest-btn" class="btn btn-sm btn-secondary">⏸️ 休止符</button>
+                                </div>
+                            </div>
+                            
+                            <div class="score-display">
+                                <div id="score-container" class="score-container">
+                                    <div id="score-loading" class="loading">正在加载乐谱...</div>
+                                    <div id="score-render" class="score-render"></div>
+                                </div>
+                            </div>
+                            
+                            <div class="midi-section">
+                                <h3>🎹 MIDI键盘</h3>
+                                <div class="midi-controls">
+                                    <div class="midi-status">
+                                        <span>MIDI设备状态:</span>
+                                        <span id="midi-status" class="midi-status-text">未检测到</span>
+                                    </div>
+                                    <select id="midi-input-select" class="midi-select">
+                                        <option value="">选择MIDI输入设备</option>
+                                    </select>
+                                    <label class="midi-toggle">
+                                        <input type="checkbox" id="midi-enabled" checked>
+                                        <span>启用MIDI</span>
+                                    </label>
+                                </div>
+                                <div class="midi-monitor">
+                                    <h4>MIDI事件监视器</h4>
+                                    <div id="midi-events" class="midi-events-log"></div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="side-panel">
+                            <div class="panel participants-panel">
+                                <h3>👥 参与者</h3>
+                                <div id="participants-list" class="participants-list"></div>
+                            </div>
+                            
+                            <div class="panel connection-panel">
+                                <h3>🔌 连接状态</h3>
+                                <div class="connection-status">
+                                    <div class="status-item">
+                                        <span>信令服务器:</span>
+                                        <span id="ws-status" class="status-indicator status-disconnected">未连接</span>
+                                    </div>
+                                    <div class="status-item">
+                                        <span>WebRTC:</span>
+                                        <span id="webrtc-status" class="status-indicator status-disconnected">未连接</span>
+                                    </div>
+                                    <div class="status-item">
+                                        <span>MQTT:</span>
+                                        <span id="mqtt-status" class="status-indicator status-disconnected">未连接</span>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="panel chat-panel">
+                                <h3>💬 聊天</h3>
+                                <div id="chat-messages" class="chat-messages"></div>
+                                <div class="chat-input">
+                                    <input type="text" id="chat-input" placeholder="输入消息...">
+                                    <button id="chat-send-btn" class="btn btn-primary">发送</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <div id="versions-modal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>📜 乐谱版本历史</h3>
+                    <button class="close-btn" id="close-versions-modal">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div id="versions-list" class="versions-list"></div>
+                </div>
+            </div>
+        </div>
+
+            <div id="playback-view" class="view">
+                <div class="playback-container">
+                    <div class="playback-header">
+                        <div class="playback-info">
+                            <h2 id="playback-session-title">回放</h2>
+                            <div class="playback-meta">
+                                <span class="badge">🎥 回放模式</span>
+                                <span id="playback-current-time">0:00</span>
+                                <span>/</span>
+                                <span id="playback-total-time">0:00</span>
+                            </div>
+                        </div>
+                        
+                        <div class="playback-controls">
+                            <button id="playback-play-btn" class="btn btn-success">
+                                ▶️ 播放
+                            </button>
+                            <button id="playback-pause-btn" class="btn btn-warning" style="display: none;">
+                                ⏸️ 暂停
+                            </button>
+                            <button id="playback-stop-btn" class="btn btn-secondary">
+                                ⏹️ 停止
+                            </button>
+                            <select id="playback-rate-select" class="playback-rate">
+                                <option value="0.5">0.5x</option>
+                                <option value="0.75">0.75x</option>
+                                <option value="1" selected>1x</option>
+                                <option value="1.5">1.5x</option>
+                                <option value="2">2x</option>
+                            </select>
+                            <button id="close-playback-btn" class="btn btn-danger">
+                                🚪 退出回放
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="playback-body">
+                        <div class="playback-main">
+                            <div class="playback-progress">
+                                <input type="range" id="playback-seek-slider" min="0" max="0" value="0" class="seek-slider">
+                            </div>
+                            
+                            <div class="ghost-player-section">
+                                <h3>👻 幽灵演奏者</h3>
+                                <div id="ghost-player-visualizer" class="ghost-visualizer"></div>
+                            </div>
+                            
+                            <div class="playback-score">
+                                <h3>📜 乐谱</h3>
+                                <div id="playback-score-display" class="score-display">
+                                    <p>乐谱回放显示区域</p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="playback-side">
+                            <div class="panel comments-panel">
+                                <h3>💬 点评</h3>
+                                <div id="playback-comments" class="playback-comments"></div>
+                                <div class="comment-input">
+                                    <input type="text" id="playback-comment-input" placeholder="添加点评...">
+                                    <button id="add-comment-btn" class="btn btn-primary">发送</button>
+                                </div>
+                            </div>
+                            
+                            <div class="panel playback-info-panel">
+                                <h3>ℹ️ 回放信息</h3>
+                                <div class="playback-stats">
+                                    <div class="stat-item">
+                                        <span>MIDI事件:</span>
+                                        <span id="playback-event-count">0</span>
+                                    </div>
+                                    <div class="stat-item">
+                                        <span>点评数量:</span>
+                                        <span id="playback-comment-count">0</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <div id="versions-modal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>📜 乐谱版本历史</h3>
+                    <button class="close-btn" id="close-versions-modal">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div id="versions-list" class="versions-list"></div>
+                </div>
+            </div>
+        </div>
+
+        <div id="toast" class="toast"></div>
+    </div>
+
+    <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+    <script src="/js/webrtc.js?v=1.0.6"></script>
+    <script src="/js/midi.js?v=1.0.6"></script>
+    <script src="/js/mqttClient.js?v=1.0.6"></script>
+    <script src="/js/editor.js?v=1.0.6"></script>
+    <script src="/js/playbackManager.js?v=1.0.6"></script>
+    <script src="/js/app.js?v=1.0.6"></script>
+</body>
+</html>

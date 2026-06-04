@@ -1,0 +1,391 @@
+#pragma kernel Advect
+#pragma kernel Divergence
+#pragma kernel Pressure
+#pragma kernel Gradient
+#pragma kernel SparseAdvect
+
+RWStructuredBuffer<float3> Velocity;
+RWStructuredBuffer<float> Density;
+RWStructuredBuffer<int> Obstacles;
+
+struct SparseRegion
+{
+    int centerX;
+    int centerY;
+    int centerZ;
+    int radius;
+    float updateTime;
+};
+
+RWStructuredBuffer<SparseRegion> SparseRegions;
+
+float DeltaTime;
+float WindSpeed;
+float Turbulence;
+float4 WindDirection;
+int GridSize;
+float NoiseScale;
+float NoiseSpeed;
+float Time;
+float EddyStrength;
+float GustStrength;
+float4 GustDirection;
+int SparseRegionCount;
+
+float hash(float3 p)
+{
+    p = frac(p * 0.3183099f + 0.1f);
+    p *= 17.0f;
+    return frac(p.x * p.y * p.z * (p.x + p.y + p.z));
+}
+
+float perlinNoise(float3 p)
+{
+    float3 i = floor(p);
+    float3 f = frac(p);
+    float3 u = f * f * (3.0f - 2.0f * f);
+
+    float n000 = dot(float3(hash(i + float3(0, 0, 0)), hash(i + float3(0, 0, 0) + 0.1f), hash(i + float3(0, 0, 0) + 0.2f)), f - float3(0, 0, 0));
+    float n100 = dot(float3(hash(i + float3(1, 0, 0)), hash(i + float3(1, 0, 0) + 0.1f), hash(i + float3(1, 0, 0) + 0.2f)), f - float3(1, 0, 0));
+    float n010 = dot(float3(hash(i + float3(0, 1, 0)), hash(i + float3(0, 1, 0) + 0.1f), hash(i + float3(0, 1, 0) + 0.2f)), f - float3(0, 1, 0));
+    float n110 = dot(float3(hash(i + float3(1, 1, 0)), hash(i + float3(1, 1, 0) + 0.1f), hash(i + float3(1, 1, 0) + 0.2f)), f - float3(1, 1, 0));
+    float n001 = dot(float3(hash(i + float3(0, 0, 1)), hash(i + float3(0, 0, 1) + 0.1f), hash(i + float3(0, 0, 1) + 0.2f)), f - float3(0, 0, 1));
+    float n101 = dot(float3(hash(i + float3(1, 0, 1)), hash(i + float3(1, 0, 1) + 0.1f), hash(i + float3(1, 0, 1) + 0.2f)), f - float3(1, 0, 1));
+    float n011 = dot(float3(hash(i + float3(0, 1, 1)), hash(i + float3(0, 1, 1) + 0.1f), hash(i + float3(0, 1, 1) + 0.2f)), f - float3(0, 1, 1));
+    float n111 = dot(float3(hash(i + float3(1, 1, 1)), hash(i + float3(1, 1, 1) + 0.1f), hash(i + float3(1, 1, 1) + 0.2f)), f - float3(1, 1, 1));
+
+    return n000;
+}
+
+float fractalNoise(float3 p, int octaves, float persistence)
+{
+    float total = 0.0f;
+    float frequency = 1.0f;
+    float amplitude = 1.0f;
+    float maxValue = 0.0f;
+
+    for (int i = 0; i < octaves; i++)
+    {
+        total += perlinNoise(p * frequency) * amplitude;
+        maxValue += amplitude;
+        amplitude *= persistence;
+        frequency *= 2.0f;
+    }
+
+    return total / maxValue;
+}
+
+float3 samplePerlinDirection(float3 pos, float time, float scale, float speed)
+{
+    float offset = time * speed;
+
+    float nx = fractalNoise(float3(pos.x * scale + offset, pos.y * scale, pos.z * scale), 3, 0.5f);
+    float ny = fractalNoise(float3(pos.x * scale, pos.y * scale + offset, pos.z * scale), 3, 0.5f);
+    float nz = fractalNoise(float3(pos.x * scale, pos.y * scale, pos.z * scale + offset), 3, 0.5f);
+
+    float angleX = nx * 3.14159f;
+    float angleY = ny * 1.5708f;
+
+    return float3(
+        cos(angleX) * cos(angleY),
+        sin(angleY),
+        sin(angleX) * cos(angleY)
+    );
+}
+
+float3 sampleCurl(float3 pos, float time, float scale, float speed, float strength)
+{
+    float eps = 0.001f;
+
+    float3 px = samplePerlinDirection(pos + float3(eps, 0, 0), time, scale, speed);
+    float3 mx = samplePerlinDirection(pos - float3(eps, 0, 0), time, scale, speed);
+    float3 py = samplePerlinDirection(pos + float3(0, eps, 0), time, scale, speed);
+    float3 my = samplePerlinDirection(pos - float3(0, eps, 0), time, scale, speed);
+    float3 pz = samplePerlinDirection(pos + float3(0, 0, eps), time, scale, speed);
+    float3 mz = samplePerlinDirection(pos - float3(0, 0, eps), time, scale, speed);
+
+    float3 curl;
+    curl.x = (pz.y - mz.y) / (2 * eps) - (py.z - my.z) / (2 * eps);
+    curl.y = (px.z - mx.z) / (2 * eps) - (pz.x - mz.x) / (2 * eps);
+    curl.z = (py.x - my.x) / (2 * eps) - (px.y - mx.y) / (2 * eps);
+
+    float mag = length(curl);
+    if (mag > 0)
+        curl = normalize(curl);
+
+    return curl * strength;
+}
+
+float3 applyObstacleAvoidance(uint3 id, float3 velocity)
+{
+    float3 avoidDir = float3(0, 0, 0);
+    int avoidCount = 0;
+
+    for (int dx = -2; dx <= 2; dx++)
+    {
+        for (int dy = -2; dy <= 2; dy++)
+        {
+            for (int dz = -2; dz <= 2; dz++)
+            {
+                if (dx == 0 && dy == 0 && dz == 0) continue;
+
+                int nx = (int)id.x + dx;
+                int ny = (int)id.y + dy;
+                int nz = (int)id.z + dz;
+
+                if (nx < 0 || nx >= GridSize || ny < 0 || ny >= GridSize || nz < 0 || nz >= GridSize)
+                    continue;
+
+                int ni = nx + ny * GridSize + nz * GridSize * GridSize;
+                if (Obstacles[ni] == 1)
+                {
+                    float dist = sqrt((float)(dx * dx + dy * dy + dz * dz));
+                    float factor = 1.0f / (dist * dist);
+
+                    avoidDir -= float3(dx, dy, dz) * factor;
+                    avoidCount++;
+                }
+            }
+        }
+    }
+
+    if (avoidCount > 0)
+    {
+        float avoidMag = length(avoidDir);
+        if (avoidMag > 0)
+        {
+            avoidDir = normalize(avoidDir);
+            float blend = min(1.0f, (float)avoidCount / 12.0f);
+            velocity = velocity * (1.0f - blend) + avoidDir * blend * 50.0f;
+        }
+    }
+
+    return velocity;
+}
+
+int clampIndex(int x, int y, int z)
+{
+    x = clamp(x, 0, GridSize - 1);
+    y = clamp(y, 0, GridSize - 1);
+    z = clamp(z, 0, GridSize - 1);
+    return x + y * GridSize + z * GridSize * GridSize;
+}
+
+float3 computeTargetVelocity(uint3 id)
+{
+    int index = id.x + id.y * GridSize + id.z * GridSize * GridSize;
+
+    if (Obstacles[index] == 1)
+        return float3(0, 0, 0);
+
+    float3 pos = float3(id.x, id.y, id.z);
+
+    float3 perlinDir = samplePerlinDirection(pos, Time, NoiseScale, NoiseSpeed);
+    float3 curlVel = sampleCurl(pos, Time, NoiseScale * 1.5f, NoiseSpeed * 0.8f, EddyStrength);
+
+    float3 velocity = WindDirection.xyz + perlinDir * Turbulence + curlVel;
+
+    if (GustStrength > 0)
+    {
+        velocity += GustDirection.xyz * (GustStrength / max(WindSpeed, 1.0f));
+    }
+
+    float mag = length(velocity);
+    if (mag > 0)
+        velocity = normalize(velocity);
+
+    float speed = WindSpeed + GustStrength;
+    velocity = velocity * speed;
+
+    velocity = applyObstacleAvoidance(id, velocity);
+
+    return velocity;
+}
+
+[numthreads(8, 8, 8)]
+void Advect(uint3 id : SV_DispatchThreadID)
+{
+    if (id.x >= GridSize || id.y >= GridSize || id.z >= GridSize)
+        return;
+
+    int index = id.x + id.y * GridSize + id.z * GridSize * GridSize;
+
+    if (Obstacles[index] == 1)
+    {
+        Velocity[index] = float3(0, 0, 0);
+        return;
+    }
+
+    float3 targetVel = computeTargetVelocity(id);
+
+    Velocity[index] = lerp(Velocity[index], targetVel, DeltaTime * 2.0f);
+
+    float3 backPos = float3(id.x, id.y, id.z) - Velocity[index] * DeltaTime;
+    int3 backIdx = int3(clamp(backPos, 0, GridSize - 1));
+    int backIndex = backIdx.x + backIdx.y * GridSize + backIdx.z * GridSize * GridSize;
+
+    if (Obstacles[backIndex] == 0)
+    {
+        Velocity[index] = lerp(Velocity[index], Velocity[backIndex], 0.1f);
+    }
+
+    float vorticity = 0.0f;
+    vorticity += Velocity[clampIndex(id.x + 1, id.y, id.z)].y - Velocity[clampIndex(id.x - 1, id.y, id.z)].y;
+    vorticity -= Velocity[clampIndex(id.x + 1, id.y, id.z)].z - Velocity[clampIndex(id.x - 1, id.y, id.z)].z;
+    vorticity += Velocity[clampIndex(id.x, id.y + 1, id.z)].z - Velocity[clampIndex(id.x, id.y - 1, id.z)].z;
+    vorticity -= Velocity[clampIndex(id.x, id.y + 1, id.z)].x - Velocity[clampIndex(id.x, id.y - 1, id.z)].x;
+    vorticity += Velocity[clampIndex(id.x, id.y, id.z + 1)].x - Velocity[clampIndex(id.x, id.y, id.z - 1)].x;
+    vorticity -= Velocity[clampIndex(id.x, id.y, id.z + 1)].y - Velocity[clampIndex(id.x, id.y, id.z - 1)].y;
+
+    float3 vortexForce = float3(
+        sin(Time * 0.001f + (float)id.y * 0.1f) * vorticity,
+        cos(Time * 0.001f + (float)id.z * 0.1f) * vorticity,
+        sin(Time * 0.001f + (float)id.x * 0.1f) * vorticity
+    );
+    Velocity[index] += vortexForce * Turbulence * DeltaTime;
+}
+
+[numthreads(8, 8, 8)]
+void SparseAdvect(uint3 id : SV_DispatchThreadID)
+{
+    uint regionIdx = id.x;
+    if (regionIdx >= (uint)SparseRegionCount)
+        return;
+
+    SparseRegion region = SparseRegions[regionIdx];
+
+    for (int dx = -region.radius; dx <= region.radius; dx++)
+    {
+        for (int dy = -region.radius; dy <= region.radius; dy++)
+        {
+            for (int dz = -region.radius; dz <= region.radius; dz++)
+            {
+                int nx = region.centerX + dx;
+                int ny = region.centerY + dy;
+                int nz = region.centerZ + dz;
+
+                if (nx < 0 || nx >= GridSize || ny < 0 || ny >= GridSize || nz < 0 || nz >= GridSize)
+                    continue;
+
+                float dist = sqrt((float)(dx * dx + dy * dy + dz * dz));
+                if (dist > (float)region.radius)
+                    continue;
+
+                uint3 voxelId = uint3(nx, ny, nz);
+                int idx = nx + ny * GridSize + nz * GridSize * GridSize;
+
+                float3 targetVel = computeTargetVelocity(voxelId);
+                Velocity[idx] = lerp(Velocity[idx], targetVel, DeltaTime * 3.0f);
+            }
+        }
+    }
+}
+
+[numthreads(8, 8, 8)]
+void Divergence(uint3 id : SV_DispatchThreadID)
+{
+    if (id.x >= GridSize || id.y >= GridSize || id.z >= GridSize)
+        return;
+
+    int index = id.x + id.y * GridSize + id.z * GridSize * GridSize;
+
+    if (Obstacles[index] == 1)
+    {
+        Density[index] = 0;
+        return;
+    }
+
+    float div = 0.0f;
+
+    int xp = clampIndex(id.x + 1, id.y, id.z);
+    int xm = clampIndex(id.x - 1, id.y, id.z);
+    int yp = clampIndex(id.x, id.y + 1, id.z);
+    int ym = clampIndex(id.x, id.y - 1, id.z);
+    int zp = clampIndex(id.x, id.y, id.z + 1);
+    int zm = clampIndex(id.x, id.y, id.z - 1);
+
+    if (Obstacles[xp] == 0) div += Velocity[xp].x;
+    if (Obstacles[xm] == 0) div -= Velocity[xm].x;
+    if (Obstacles[yp] == 0) div += Velocity[yp].y;
+    if (Obstacles[ym] == 0) div -= Velocity[ym].y;
+    if (Obstacles[zp] == 0) div += Velocity[zp].z;
+    if (Obstacles[zm] == 0) div -= Velocity[zm].z;
+
+    Density[index] = div * 0.5f;
+}
+
+[numthreads(8, 8, 8)]
+void Pressure(uint3 id : SV_DispatchThreadID)
+{
+    if (id.x >= GridSize || id.y >= GridSize || id.z >= GridSize)
+        return;
+
+    int index = id.x + id.y * GridSize + id.z * GridSize * GridSize;
+
+    if (Obstacles[index] == 1)
+    {
+        Density[index] = 0;
+        return;
+    }
+
+    float p = 0.0f;
+    int count = 0;
+
+    int xp = clampIndex(id.x + 1, id.y, id.z);
+    int xm = clampIndex(id.x - 1, id.y, id.z);
+    int yp = clampIndex(id.x, id.y + 1, id.z);
+    int ym = clampIndex(id.x, id.y - 1, id.z);
+    int zp = clampIndex(id.x, id.y, id.z + 1);
+    int zm = clampIndex(id.x, id.y, id.z - 1);
+
+    if (Obstacles[xp] == 0) { p += Density[xp]; count++; }
+    if (Obstacles[xm] == 0) { p += Density[xm]; count++; }
+    if (Obstacles[yp] == 0) { p += Density[yp]; count++; }
+    if (Obstacles[ym] == 0) { p += Density[ym]; count++; }
+    if (Obstacles[zp] == 0) { p += Density[zp]; count++; }
+    if (Obstacles[zm] == 0) { p += Density[zm]; count++; }
+
+    if (count > 0)
+    {
+        Density[index] = (p + Density[index]) / (float)(count + 1);
+    }
+}
+
+[numthreads(8, 8, 8)]
+void Gradient(uint3 id : SV_DispatchThreadID)
+{
+    if (id.x >= GridSize || id.y >= GridSize || id.z >= GridSize)
+        return;
+
+    int index = id.x + id.y * GridSize + id.z * GridSize * GridSize;
+
+    if (Obstacles[index] == 1)
+    {
+        Velocity[index] = float3(0, 0, 0);
+        return;
+    }
+
+    float3 grad = float3(0, 0, 0);
+
+    int xp = clampIndex(id.x + 1, id.y, id.z);
+    int xm = clampIndex(id.x - 1, id.y, id.z);
+    int yp = clampIndex(id.x, id.y + 1, id.z);
+    int ym = clampIndex(id.x, id.y - 1, id.z);
+    int zp = clampIndex(id.x, id.y, id.z + 1);
+    int zm = clampIndex(id.x, id.y, id.z - 1);
+
+    if (Obstacles[xp] == 0 && Obstacles[xm] == 0)
+        grad.x = Density[xp] - Density[xm];
+    if (Obstacles[yp] == 0 && Obstacles[ym] == 0)
+        grad.y = Density[yp] - Density[ym];
+    if (Obstacles[zp] == 0 && Obstacles[zm] == 0)
+        grad.z = Density[zp] - Density[zm];
+
+    Velocity[index] -= grad * 0.5f;
+
+    float3 center = float3(GridSize * 0.5f, GridSize * 0.5f, GridSize * 0.5f);
+    float3 toCenter = center - float3(id.x, id.y, id.z);
+    float dist = length(toCenter);
+    float boundaryForce = max(0, GridSize * 0.5f - dist) * 0.1f;
+    Velocity[index] += normalize(toCenter) * boundaryForce * DeltaTime;
+}

@@ -1,0 +1,48 @@
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  background: #0d0d1a;
+  color: #e0e0e0;
+}
+
+.ant-card {
+  background: #141428 !important;
+  border-color: #2a2a5a !important;
+}
+
+.ant-card-head {
+  border-color: #2a2a5a !important;
+  color: #e0e0ff !important;
+}
+
+.ant-form-item-label > label {
+  color: #c0c0dd !important;
+}
+
+.ant-select-selector,
+.ant-input-number {
+  background: #1a1a3a !important;
+  border-color: #3a3a6a !important;
+  color: #e0e0e0 !important;
+}
+
+.ant-slider-track {
+  background: #1890ff !important;
+}
+
+.ant-btn-primary {
+  background: #1890ff !important;
+  border-color: #1890ff !important;
+}
+
+.ant-steps-item-title {
+  color: #c0c0dd !important;
+}
+
+.ant-steps-item-description {
+  color: #8888bb !important;
+}
+
+.ant-progress-bg {
+  background: linear-gradient(90deg, #108ee9, #87d068) !important;
+}

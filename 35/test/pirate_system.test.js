@@ -1,0 +1,138 @@
+console.log('=== 海盗事件与装备升级系统测试 ===\n');
+
+console.log('1. 海盗事件触发机制:');
+console.log('   - 触发概率: 5% (挖矿成功后)');
+console.log('   - 触发条件: 挖矿成功 + 当前矿石 > 0 + 无待处理海盗事件');
+console.log('   - 事件ID: pirate_{timestamp}_{random}');
+console.log();
+
+console.log('2. 海盗事件属性:');
+console.log('   - pirateLevel: 1-4级 (基于玩家装备等级随机)');
+console.log('   - piratePower: 6 + pirateLevel * 2 (骰子前基础值)');
+console.log('   - oreDemand: 当前矿石 * 50% (投降损失)');
+console.log('   - equipmentBonus: 装备等级 * 1 (玩家骰子加成)');
+console.log();
+
+console.log('3. 交战机制 (fightPirate):');
+console.log('   - 玩家战力 = 骰子(1-6) + 装备等级');
+console.log('   - 海盗战力 = 骰子(1-6) + 海盗等级 * 2');
+console.log('   - 胜利条件: 玩家战力 >= 海盗战力');
+console.log('   - 胜利奖励: 缴获 oreDemand * 50% 矿石');
+console.log('   - 失败惩罚: 损失 oreDemand 矿石 + 1 燃料');
+console.log('   - 失败后燃料为0则游戏结束');
+console.log();
+
+console.log('4. 投降机制 (surrenderToPirate):');
+console.log('   - 损失: oreDemand 矿石 (当前矿石的50%)');
+console.log('   - 无燃料损失');
+console.log('   - 计入 surrenderedCount 统计');
+console.log();
+
+console.log('5. 装备升级系统:');
+console.log('   - 最大等级: 5');
+console.log('   - 升级费用: Lv2=50, Lv3=150, Lv4=300, Lv5=500 矿石');
+console.log('   - 战斗加成: 每级 +1');
+console.log('   - 升级条件: 游戏中 + 矿石足够 + 未达最高等级');
+console.log();
+
+console.log('6. Socket.IO 事件列表:');
+console.log('   服务端 -> 客户端:');
+console.log('   - pirate:encounter        海盗事件推送');
+console.log('   - pirate:fightResult      交战结果');
+console.log('   - pirate:surrenderResult  投降结果');
+console.log('   - equipment:upgradeInfo   装备升级信息');
+console.log('   - equipment:upgradeResult 升级结果');
+console.log();
+console.log('   客户端 -> 服务端:');
+console.log('   - pirate:fight            发起交战');
+console.log('   - pirate:surrender        选择投降');
+console.log('   - equipment:checkUpgrade  查询升级信息');
+console.log('   - equipment:upgrade       执行升级');
+console.log();
+
+console.log('7. 海盗事件完整流程:');
+console.log('   ┌─────────────────────────────────────────┐');
+console.log('   │ 玩家挖矿成功 (70%概率)                  │');
+console.log('   └─────────────────────────────────────────┘');
+console.log('                        ↓ 5%概率 + 矿石>0');
+console.log('   ┌─────────────────────────────────────────┐');
+console.log('   │ handlePirateEncounter() 创建事件        │');
+console.log('   │ 设置 pendingPirateEvent                 │');
+console.log('   │ 记录 pirateEncounters++                 │');
+console.log('   └─────────────────────────────────────────┘');
+console.log('                        ↓');
+console.log('   ┌─────────────────────────────────────────┐');
+console.log('   │ Socket 发送 pirate:encounter 事件       │');
+console.log('   │ 前端显示海盗弹窗 + 屏幕震动              │');
+console.log('   │ 禁用挖矿/返航/升级按钮                   │');
+console.log('   └─────────────────────────────────────────┘');
+console.log('                        ↓');
+console.log('       ┌─────────────────────────────────────────┐');
+console.log('       ↓ 点击"交战" (F/1键)        ↓ 点击"投降" (S/2键)');
+console.log('   ┌──────────────────┐              ┌──────────────────┐');
+console.log('   │ pirate:fight     │              │ pirate:surrender │');
+console.log('   │ 双骰子对决        │              │ 损失50%矿石      │');
+console.log('   │ 胜利+矿石        │              │ 关闭弹窗         │');
+console.log('   │ 失败-矿石-燃料   │              └──────────────────┘');
+console.log('   │ 燃料=0则游戏结束 │');
+console.log('   └──────────────────┘');
+console.log('                        ↓');
+console.log('   ┌─────────────────────────────────────────┐');
+console.log('   │ 显示战斗结果动画 (2.5秒)                 │');
+console.log('   │ 恢复按钮状态                            │');
+console.log('   │ 更新HUD和装备面板                       │');
+console.log('   └─────────────────────────────────────────┘');
+console.log();
+
+console.log('8. 装备升级流程:');
+console.log('   ┌─────────────────────────────────────────┐');
+console.log('   │ 点击"升级装备"按钮 (U键)                 │');
+console.log('   └─────────────────────────────────────────┘');
+console.log('                        ↓');
+console.log('   ┌─────────────────────────────────────────┐');
+console.log('   │ 检查升级条件:                           │');
+console.log('   │ - 矿石是否足够                          │');
+console.log('   │ - 是否已达最高等级                       │');
+console.log('   │ - 游戏是否在进行中                       │');
+console.log('   └─────────────────────────────────────────┘');
+console.log('                        ↓');
+console.log('       ┌─────────────────────────────────────────┐');
+console.log('       ↓ 条件满足                      ↓ 条件不满足');
+console.log('   ┌──────────────────┐              ┌──────────────────┐');
+console.log('   │ 扣除矿石         │              │ 显示错误消息     │');
+console.log('   │ 装备等级+1       │              └──────────────────┘');
+console.log('   │ 战斗加成+1       │');
+console.log('   │ 屏幕震动反馈     │');
+console.log('   │ 更新HUD和面板    │');
+console.log('   └──────────────────┘');
+console.log();
+
+console.log('9. 玩家状态新增字段:');
+console.log('   - equipmentLevel: 装备等级 (默认1)');
+console.log('   - pendingPirateEvent: 待处理海盗事件 (默认null)');
+console.log('   - pirateEncounters: 海盗遭遇次数');
+console.log('   - pirateWins: 海盗战斗胜利次数');
+console.log('   - pirateLosses: 海盗战斗失败次数');
+console.log('   - surrenderedCount: 投降次数');
+console.log();
+
+console.log('10. 键盘快捷键:');
+console.log('    正常游戏时:');
+console.log('    - Space/Enter: 挖矿');
+console.log('    - R/Escape: 返航');
+console.log('    - U: 升级装备');
+console.log('    ');
+console.log('    海盗弹窗时:');
+console.log('    - F/1: 交战');
+console.log('    - S/2: 投降');
+console.log();
+
+console.log('11. 特殊限制:');
+console.log('    - 有待处理海盗事件时: 禁止挖矿/返航/升级');
+console.log('    - 有待处理海盗事件时: 禁止返航');
+console.log('    - 海盗事件只在挖矿成功后触发');
+console.log('    - 矿石为0时不会触发海盗事件');
+console.log('    - 断线重连时恢复待处理的海盗事件');
+console.log();
+
+console.log('=== 测试完成 ===');

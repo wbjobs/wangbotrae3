@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>化学实验模拟器</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; overflow: hidden; font-family: 'Segoe UI', sans-serif; background: #0a0a1a; }
+    #app { width: 100%; height: 100%; position: relative; }
+    #canvas-container { width: 100%; height: 100%; }
+    canvas { display: block; }
+    #ui-overlay {
+      position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+      pointer-events: none;
+    }
+    #ui-overlay > * { pointer-events: auto; }
+    #reagent-panel {
+      position: absolute; top: 10px; left: 10px;
+      background: rgba(20,20,40,0.92); border-radius: 12px;
+      padding: 12px; min-width: 180px; border: 1px solid rgba(100,140,255,0.3);
+      box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+    }
+    #reagent-panel h3 {
+      color: #8ab4ff; font-size: 14px; margin-bottom: 8px;
+      border-bottom: 1px solid rgba(100,140,255,0.2); padding-bottom: 6px;
+    }
+    .reagent-item {
+      display: flex; align-items: center; gap: 8px;
+      padding: 6px 8px; margin: 3px 0; border-radius: 6px;
+      cursor: grab; color: #ccd6f6; font-size: 13px;
+      transition: background 0.2s;
+    }
+    .reagent-item:hover { background: rgba(100,140,255,0.15); }
+    .reagent-item.dragging { opacity: 0.5; }
+    .reagent-color {
+      width: 14px; height: 14px; border-radius: 50%;
+      border: 1px solid rgba(255,255,255,0.3); flex-shrink: 0;
+    }
+    #info-panel {
+      position: absolute; top: 10px; right: 10px;
+      background: rgba(20,20,40,0.92); border-radius: 12px;
+      padding: 14px; min-width: 220px; border: 1px solid rgba(100,140,255,0.3);
+      box-shadow: 0 4px 20px rgba(0,0,0,0.5); color: #ccd6f6; font-size: 13px;
+    }
+    #info-panel h3 {
+      color: #8ab4ff; font-size: 14px; margin-bottom: 8px;
+      border-bottom: 1px solid rgba(100,140,255,0.2); padding-bottom: 6px;
+    }
+    .info-row { display: flex; justify-content: space-between; margin: 4px 0; }
+    .info-label { color: #8892b0; }
+    .info-value { color: #64ffda; font-weight: 600; }
+    #toolbar {
+      position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
+      display: flex; gap: 10px;
+      background: rgba(20,20,40,0.92); border-radius: 12px;
+      padding: 10px 16px; border: 1px solid rgba(100,140,255,0.3);
+      box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+    }
+    .tool-btn {
+      background: rgba(100,140,255,0.1); border: 1px solid rgba(100,140,255,0.3);
+      color: #ccd6f6; padding: 8px 16px; border-radius: 8px;
+      cursor: pointer; font-size: 13px; transition: all 0.2s;
+    }
+    .tool-btn:hover { background: rgba(100,140,255,0.25); }
+    .tool-btn.active { background: rgba(100,140,255,0.4); border-color: #64ffda; color: #64ffda; }
+    #users-panel {
+      position: absolute; bottom: 20px; right: 10px;
+      background: rgba(20,20,40,0.92); border-radius: 12px;
+      padding: 10px 14px; border: 1px solid rgba(100,140,255,0.3);
+      box-shadow: 0 4px 20px rgba(0,0,0,0.5); color: #ccd6f6; font-size: 12px;
+    }
+    .user-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 6px; }
+    #log-panel {
+      position: absolute; bottom: 80px; left: 10px;
+      background: rgba(20,20,40,0.85); border-radius: 10px;
+      padding: 10px; max-height: 200px; overflow-y: auto;
+      width: 300px; border: 1px solid rgba(100,140,255,0.2);
+      font-size: 12px; color: #8892b0;
+    }
+    .log-entry { margin: 2px 0; }
+    .log-entry .time { color: #4a5568; margin-right: 6px; }
+    .log-entry .reaction { color: #64ffda; }
+    #drop-zone {
+      position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+      width: 300px; height: 200px; border: 2px dashed rgba(100,140,255,0.3);
+      border-radius: 16px; display: none; align-items: center; justify-content: center;
+      color: rgba(100,140,255,0.5); font-size: 16px; pointer-events: none;
+    }
+    #drop-zone.visible { display: flex; }
+    #timeline-panel {
+      position: absolute; bottom: 90px; left: 50%; transform: translateX(-50%);
+      width: 600px; background: rgba(20,20,40,0.95); border-radius: 12px;
+      padding: 12px 16px; border: 1px solid rgba(100,140,255,0.3);
+      box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+    }
+    #timeline-controls {
+      display: flex; gap: 8px; align-items: center; margin-bottom: 8px;
+      flex-wrap: wrap;
+    }
+    #timeline-controls button {
+      background: rgba(100,140,255,0.1); border: 1px solid rgba(100,140,255,0.3);
+      color: #ccd6f6; padding: 6px 12px; border-radius: 6px;
+      cursor: pointer; font-size: 12px; transition: all 0.2s;
+      flex-shrink: 0;
+    }
+    #timeline-controls button:hover { background: rgba(100,140,255,0.25); }
+    #timeline-controls button.active { background: rgba(100,140,255,0.4); border-color: #64ffda; color: #64ffda; }
+    #timeline-controls button.recording { background: rgba(255,80,80,0.3); border-color: #ff5050; color: #ff8080; animation: pulse 1.5s infinite; }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.6; }
+    }
+    #timeline-info {
+      display: flex; justify-content: space-between; margin-bottom: 6px;
+      font-size: 11px; color: #8892b0;
+    }
+    #timeline-status {
+      color: #64ffda; font-weight: 600;
+    }
+    #timeline-slider-container {
+      display: flex; align-items: center; gap: 10px;
+    }
+    #timeline-slider {
+      flex: 1; height: 8px; -webkit-appearance: none;
+      background: linear-gradient(to right, rgba(100,140,255,0.2), rgba(100,140,255,0.4));
+      border-radius: 4px; outline: none; cursor: pointer;
+    }
+    #timeline-slider::-webkit-slider-thumb {
+      -webkit-appearance: none; width: 16px; height: 16px;
+      background: #64ffda; border-radius: 50%; cursor: pointer;
+      box-shadow: 0 0 10px rgba(100,255,218,0.5);
+    }
+    #timeline-slider::-moz-range-thumb {
+      width: 16px; height: 16px; background: #64ffda;
+      border-radius: 50%; cursor: pointer; border: none;
+      box-shadow: 0 0 10px rgba(100,255,218,0.5);
+    }
+    #step-back-btn, #step-forward-btn {
+      font-family: monospace; font-weight: bold;
+    }
+    #timeline-markers {
+      position: relative; height: 10px; margin-top: -2px;
+    }
+    .timeline-marker {
+      position: absolute; top: 0; width: 3px; height: 10px;
+      background: rgba(100,255,218,0.5); border-radius: 2px;
+      transform: translateX(-50%);
+    }
+    .marker-tooltip {
+      position: absolute; top: -28px; transform: translateX(-50%);
+      background: rgba(10,10,20,0.95); color: #ccd6f6;
+      padding: 2px 6px; border-radius: 4px;
+      font-size: 10px; white-space: nowrap;
+      pointer-events: none; opacity: 0;
+      transition: opacity 0.2s;
+      border: 1px solid rgba(100,140,255,0.3);
+    }
+    .timeline-marker:hover .marker-tooltip { opacity: 1; }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div id="canvas-container"></div>
+    <div id="ui-overlay">
+      <div id="reagent-panel">
+        <h3>🧪 试剂架</h3>
+        <div id="reagent-list"></div>
+      </div>
+      <div id="info-panel">
+        <h3>📊 实验数据</h3>
+        <div id="solution-info">
+          <div class="info-row"><span class="info-label">pH值</span><span class="info-value" id="ph-value">7.00</span></div>
+          <div class="info-row"><span class="info-label">温度</span><span class="info-value" id="temp-value">25.0°C</span></div>
+          <div class="info-row"><span class="info-label">颜色</span><span class="info-value" id="color-value">无色</span></div>
+          <div class="info-row"><span class="info-label">沉淀量</span><span class="info-value" id="precip-value">0.00g</span></div>
+          <div class="info-row"><span class="info-label">体积</span><span class="info-value" id="volume-value">0mL</span></div>
+        </div>
+      </div>
+      <div id="toolbar">
+        <button class="tool-btn" data-tool="pour">🫗 倾倒</button>
+        <button class="tool-btn" data-tool="heat">🔥 加热</button>
+        <button class="tool-btn" data-tool="stir">🥄 搅拌</button>
+        <button class="tool-btn" data-tool="reset">🔄 重置</button>
+      </div>
+      <div id="users-panel">
+        <div>在线用户: <span id="user-count">1</span></div>
+        <div id="user-list"></div>
+      </div>
+      <div id="log-panel"></div>
+      <div id="drop-zone">拖放试剂到此处</div>
+      <div id="timeline-panel">
+        <div id="timeline-info">
+          <span id="timeline-status">⏸ 空闲</span>
+          <span id="timeline-counter">0 / 0</span>
+        </div>
+        <div id="timeline-controls">
+          <button id="record-btn" title="开始录制">⏺ 录制</button>
+          <button id="play-back-btn" title="逆向播放">⏪ 逆向</button>
+          <button id="step-back-btn" title="上一步" disabled>◀</button>
+          <button id="pause-btn" title="暂停" disabled>⏸ 暂停</button>
+          <button id="step-forward-btn" title="下一步" disabled>▶</button>
+          <button id="play-forward-btn" title="正向播放">⏩ 正向</button>
+          <button id="reset-playback-btn" title="重置">↺ 重置</button>
+        </div>
+        <div id="timeline-slider-container">
+          <span id="timeline-start">开始</span>
+          <input type="range" id="timeline-slider" min="-1" max="-1" value="-1" disabled />
+          <span id="timeline-end">结束</span>
+        </div>
+        <div id="timeline-markers"></div>
+      </div>
+    </div>
+  </div>
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>

@@ -1,0 +1,22 @@
+2026-06-04 07:20:58 - INFO - ============================================================
+2026-06-04 07:20:58 - INFO - Starting batch processing
+2026-06-04 07:20:58 - INFO - ============================================================
+2026-06-04 07:20:58 - INFO - Found 1 thermal images, 0 visible images, 1 meteo files
+2026-06-04 07:20:58 - INFO - Input directory: ./test_error_handling
+2026-06-04 07:20:58 - INFO - Output directory: ./test_batch_with_errors
+2026-06-04 07:20:58 - INFO - 
+2026-06-04 07:20:58 - INFO - ------------------------------------------------------------
+2026-06-04 07:20:58 - INFO - Processing 1/1: bad
+2026-06-04 07:20:58 - WARNING - Skipping bad: missing matching files
+2026-06-04 07:20:58 - WARNING -   - Missing visible image for bad
+2026-06-04 07:20:58 - INFO - 
+2026-06-04 07:20:58 - INFO - ============================================================
+2026-06-04 07:20:58 - INFO - Batch processing complete
+2026-06-04 07:20:58 - INFO - ============================================================
+2026-06-04 07:20:58 - INFO - Total samples: 1
+2026-06-04 07:20:58 - INFO - Successfully processed: 0
+2026-06-04 07:20:58 - INFO - Skipped (missing files): 1
+2026-06-04 07:20:58 - INFO - Failed (errors): 0
+2026-06-04 07:20:58 - INFO - Skipped samples: bad
+2026-06-04 07:20:58 - INFO - Success rate: 0.0%
+2026-06-04 07:20:58 - INFO - ============================================================

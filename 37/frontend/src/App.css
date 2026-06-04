@@ -1,0 +1,62 @@
+.App {
+  text-align: center;
+}
+
+.sankey-container {
+  width: 100%;
+  height: 500px;
+  background: #fff;
+  border-radius: 8px;
+  padding: 16px;
+}
+
+.stat-card {
+  text-align: center;
+  padding: 20px;
+}
+
+.stat-card .stat-value {
+  font-size: 28px;
+  font-weight: bold;
+  color: #1890ff;
+}
+
+.stat-card .stat-label {
+  color: #666;
+  margin-top: 8px;
+}
+
+.upload-area {
+  border: 2px dashed #1890ff;
+  border-radius: 8px;
+  padding: 40px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.upload-area:hover {
+  border-color: #40a9ff;
+  background: #e6f7ff;
+}
+
+.upload-area .upload-icon {
+  font-size: 48px;
+  color: #1890ff;
+}
+
+.upload-area .upload-text {
+  margin-top: 16px;
+  color: #666;
+}
+
+.bom-tree .ant-tree-node-content-wrapper {
+  width: 100%;
+}
+
+.comparison-chart {
+  height: 400px;
+  padding: 20px;
+  background: #fff;
+  border-radius: 8px;
+}

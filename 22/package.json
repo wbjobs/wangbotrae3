@@ -1,0 +1,19 @@
+{
+  "name": "pkgm",
+  "version": "1.0.0",
+  "description": "A simplified package manager with SemVer dependency resolution",
+  "main": "src/server.js",
+  "bin": {
+    "pkgm": "src/cli.js"
+  },
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node src/server.js"
+  },
+  "keywords": ["package-manager", "semver", "dependency-resolution"],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.18.2"
+  }
+}

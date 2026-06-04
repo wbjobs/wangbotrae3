@@ -1,0 +1,2 @@
+sample_name,Tdry_C,Twet_C,mean_canopy_temp_C,mean_cwsi,std_cwsi,cv_cwsi,min_cwsi,max_cwsi,median_cwsi,canopy_area_pixels,area_below_03_pixels,area_low_stress_pixels,area_medium_stress_pixels,area_high_stress_pixels,fraction_below_03,fraction_low_stress,fraction_medium_stress,fraction_high_stress,threshold_used
+20260603_1200,42.07,20.64,34.03,0.3752,0.1554,0.4141,-0.1369,0.5382,0.4440,89154,19474,69680,0,0,0.2184,0.7816,0.0000,0.0000,135.86

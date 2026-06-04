@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cwsicalc"
+version = "0.1.0"
+description = "Plant Water Stress Index Calculator using thermal and visible images"
+requires-python = ">=3.8"
+dependencies = [
+    "numpy>=1.21.0",
+    "opencv-python>=4.5.0",
+    "opencv-contrib-python>=4.5.0",
+    "tifffile>=2021.7.2",
+    "Pillow>=8.0.0",
+    "matplotlib>=3.4.0",
+    "click>=8.0.0",
+]
+
+[project.scripts]
+cwsicalc = "cwsicalc.cli:cli"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["cwsicalc*"]

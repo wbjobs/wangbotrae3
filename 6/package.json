@@ -1,0 +1,16 @@
+{
+  "name": "topology-physics-puzzle",
+  "version": "1.0.0",
+  "description": "2D拓扑物理解谜游戏 - ECS架构",
+  "main": "dist/main.js",
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc --watch",
+    "serve": "python -m http.server 8080",
+    "dev": "concurrently \"npm run watch\" \"npm run serve\""
+  },
+  "devDependencies": {
+    "typescript": "^5.3.0",
+    "concurrently": "^8.2.0"
+  }
+}

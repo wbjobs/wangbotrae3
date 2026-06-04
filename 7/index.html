@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>实时光线追踪消消乐</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div id="game-container">
+        <canvas id="game-canvas"></canvas>
+        
+        <div id="ui-overlay">
+            <div id="header">
+                <h1>✨ 光球消消乐 ✨</h1>
+                <div id="stats">
+                    <div class="stat-item">
+                        <span class="label">分数</span>
+                        <span id="score">0</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="label">连击</span>
+                        <span id="combo">x1</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="label">FPS</span>
+                        <span id="fps">60</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div id="controls-info">
+                <div class="control-hint">🖱️ 拖拽旋转相机 | 滚轮缩放 | 点击选中光球交换</div>
+            </div>
+            
+            <div id="match-rules">
+                <h3>匹配规则</h3>
+                <div class="rule-item">
+                    <span class="material-icon metal"></span>
+                    <span class="material-icon glass"></span>
+                    <span class="material-icon emissive"></span>
+                    <span>金属-玻璃-发光体 (任意颜色)</span>
+                </div>
+                <div class="rule-item">
+                    <span class="color-icon red"></span>
+                    <span class="color-icon red"></span>
+                    <span class="color-icon red"></span>
+                    <span>同色三连 (任意材质)</span>
+                </div>
+            </div>
+            
+            <div id="start-screen" class="overlay">
+                <div class="overlay-content">
+                    <h2>🌟 欢迎来到光球消消乐 🌟</h2>
+                    <p>匹配三个连续的光球获得分数！</p>
+                    <p class="hint">需要支持WebGPU的浏览器 (Chrome 113+)</p>
+                    <button id="start-btn">开始游戏</button>
+                </div>
+            </div>
+            
+            <div id="game-over-screen" class="overlay hidden">
+                <div class="overlay-content">
+                    <h2>🎉 游戏结束 🎉</h2>
+                    <p>最终分数: <span id="final-score">0</span></p>
+                    <p>最高连击: <span id="max-combo">x1</span></p>
+                    <button id="restart-btn">再玩一次</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module" src="src/main.js"></script>
+</body>
+</html>

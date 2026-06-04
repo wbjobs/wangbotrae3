@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>拓扑物理解谜游戏 - 关卡编辑器</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Microsoft YaHei', sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 10px;
+        }
+        h1 {
+            color: #e94560;
+            margin-bottom: 8px;
+            text-shadow: 0 0 20px rgba(233, 69, 96, 0.5);
+            font-size: 24px;
+        }
+        .main-container {
+            display: flex;
+            gap: 10px;
+            max-width: 1400px;
+            width: 100%;
+        }
+        .editor-sidebar {
+            width: 220px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            padding: 12px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .sidebar-section {
+            margin-bottom: 15px;
+        }
+        .sidebar-title {
+            color: #e94560;
+            font-size: 13px;
+            font-weight: bold;
+            margin-bottom: 8px;
+            padding-bottom: 5px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .mode-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+        .mode-btn {
+            padding: 8px 12px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 6px;
+            background: rgba(255, 255, 255, 0.05);
+            color: #fff;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-align: left;
+        }
+        .mode-btn:hover {
+            background: rgba(233, 69, 96, 0.3);
+            border-color: #e94560;
+        }
+        .mode-btn.active {
+            background: linear-gradient(135deg, #e94560, #c73e54);
+            border-color: #e94560;
+        }
+        .game-container {
+            position: relative;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            padding: 10px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            flex: 1;
+        }
+        #gameCanvas {
+            display: block;
+            background: #0a0a15;
+            border-radius: 8px;
+            cursor: crosshair;
+            width: 100%;
+            max-width: 900px;
+            margin: 0 auto;
+        }
+        .right-sidebar {
+            width: 260px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            padding: 12px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .property-panel {
+            color: #fff;
+            font-size: 12px;
+        }
+        .property-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        .property-item label {
+            color: rgba(255, 255, 255, 0.7);
+        }
+        .property-item input,
+        .property-item select {
+            width: 120px;
+            padding: 4px 8px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 4px;
+            color: #fff;
+            font-size: 12px;
+        }
+        .property-checkbox {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+        .property-checkbox input[type="checkbox"] {
+            width: auto;
+        }
+        .validation-item {
+            padding: 6px 8px;
+            border-radius: 4px;
+            margin-bottom: 5px;
+            font-size: 11px;
+        }
+        .validation-item.error {
+            background: rgba(239, 68, 68, 0.2);
+            border-left: 3px solid #ef4444;
+        }
+        .validation-item.warning {
+            background: rgba(245, 158, 11, 0.2);
+            border-left: 3px solid #f59e0b;
+        }
+        .validation-item.info {
+            background: rgba(59, 130, 246, 0.2);
+            border-left: 3px solid #3b82f6;
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 5px;
+            font-size: 11px;
+        }
+        .stat-item {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 5px;
+            border-radius: 4px;
+            text-align: center;
+        }
+        .stat-value {
+            color: #4ade80;
+            font-weight: bold;
+            font-size: 14px;
+        }
+        .stat-label {
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 10px;
+        }
+        .controls {
+            margin-top: 10px;
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        .btn {
+            padding: 8px 14px;
+            border: none;
+            border-radius: 6px;
+            background: linear-gradient(135deg, #e94560, #c73e54);
+            color: white;
+            font-size: 12px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .btn:hover {
+            transform: translateY(-1px);
+        }
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+        .btn.secondary {
+            background: linear-gradient(135deg, #533483, #3d2569);
+        }
+        .btn.success {
+            background: linear-gradient(135deg, #22c55e, #16a34a);
+        }
+        .btn.warning {
+            background: linear-gradient(135deg, #f59e0b, #d97706);
+        }
+        .btn-small {
+            padding: 4px 8px;
+            font-size: 11px;
+        }
+        .level-selector {
+            display: flex;
+            gap: 6px;
+            margin-bottom: 8px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        .level-btn {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            border: 2px solid #e94560;
+            background: transparent;
+            color: #e94560;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 12px;
+        }
+        .level-btn.active, .level-btn:hover {
+            background: #e94560;
+            color: white;
+        }
+        .level-btn.editor {
+            border-color: #3b82f6;
+            color: #3b82f6;
+            width: auto;
+            padding: 0 12px;
+            border-radius: 16px;
+        }
+        .level-btn.editor.active {
+            background: #3b82f6;
+            color: white;
+        }
+        .info-panel {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(0, 0, 0, 0.75);
+            padding: 12px;
+            border-radius: 8px;
+            color: white;
+            font-size: 12px;
+            max-width: 220px;
+        }
+        .info-panel h3 {
+            color: #e94560;
+            margin-bottom: 6px;
+            font-size: 14px;
+        }
+        .info-panel p {
+            margin: 3px 0;
+            line-height: 1.4;
+        }
+        .status {
+            margin-top: 8px;
+            padding: 6px 10px;
+            background: rgba(74, 222, 128, 0.2);
+            border-radius: 4px;
+            color: #4ade80;
+            font-size: 11px;
+        }
+        .mode-indicator {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(59, 130, 246, 0.9);
+            color: white;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        .mode-indicator.test-mode {
+            background: rgba(245, 158, 11, 0.9);
+        }
+        .empty-state {
+            color: rgba(255, 255, 255, 0.4);
+            font-style: italic;
+            text-align: center;
+            padding: 10px;
+        }
+        .no-selection {
+            color: rgba(255, 255, 255, 0.4);
+            text-align: center;
+            padding: 20px;
+            font-size: 11px;
+        }
+        .instructions {
+            margin-top: 8px;
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 11px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔗 拓扑物理解谜 - 关卡编辑器</h1>
+    
+    <div class="level-selector" id="levelSelector">
+        <button class="level-btn" data-level="1">1</button>
+        <button class="level-btn" data-level="2">2</button>
+        <button class="level-btn" data-level="3">3</button>
+        <button class="level-btn" data-level="4">4</button>
+        <button class="level-btn" data-level="5">5</button>
+        <button class="level-btn editor active" id="editorModeBtn">✏️ 编辑器</button>
+    </div>
+
+    <div class="main-container">
+        <div class="editor-sidebar" id="editorSidebar">
+            <div class="sidebar-section">
+                <div class="sidebar-title">🎨 编辑模式</div>
+                <div class="mode-buttons">
+                    <button class="mode-btn active" data-mode="select">👆 选择/移动</button>
+                    <button class="mode-btn" data-mode="addNode">🔴 添加节点</button>
+                    <button class="mode-btn" data-mode="addEdge">🔗 添加连接线</button>
+                    <button class="mode-btn" data-mode="addGear">⚙️ 添加齿轮</button>
+                    <button class="mode-btn" data-mode="addGoal">⭐ 添加目标</button>
+                    <button class="mode-btn" data-mode="addBall">🔴 添加小球</button>
+                </div>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="sidebar-title">▶️ 测试</div>
+                <button class="btn success" id="testModeBtn" style="width:100%">▶️ 进入测试模式</button>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="sidebar-title">💾 文件</div>
+                <div class="mode-buttons">
+                    <button class="btn secondary btn-small" id="exportBtn">📤 导出关卡</button>
+                    <button class="btn secondary btn-small" id="importBtn">📥 导入关卡</button>
+                    <button class="btn secondary btn-small" id="clearBtn">🗑️ 清空场景</button>
+                </div>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="sidebar-title">⚡ 快捷操作</div>
+                <div class="mode-buttons">
+                    <button class="mode-btn" id="connectNodes">🔗 连接选中节点</button>
+                    <button class="mode-btn" id="deleteSelected">❌ 删除选中</button>
+                    <button class="mode-btn" id="makePower">⚡ 设为电源</button>
+                    <button class="mode-btn" id="makeFixed">🔒 固定位置</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="game-container">
+            <canvas id="gameCanvas" width="900" height="600"></canvas>
+            
+            <div class="info-panel" id="infoPanel">
+                <h3 id="levelTitle">关卡编辑器</h3>
+                <p id="levelDesc">创建你的自定义拓扑谜题！</p>
+                <div class="status" id="status">模式：选择</div>
+            </div>
+
+            <div class="mode-indicator" id="modeIndicator">✏️ 编辑模式</div>
+        </div>
+
+        <div class="right-sidebar">
+            <div class="sidebar-section">
+                <div class="sidebar-title">📊 场景统计</div>
+                <div class="stats-grid" id="statsGrid">
+                    <div class="stat-item">
+                        <div class="stat-value" id="statNodes">0</div>
+                        <div class="stat-label">节点</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value" id="statGears">0</div>
+                        <div class="stat-label">齿轮</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value" id="statGoals">0</div>
+                        <div class="stat-label">目标</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value" id="statBalls">0</div>
+                        <div class="stat-label">小球</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="sidebar-title">🔧 属性编辑</div>
+                <div class="property-panel" id="propertyPanel">
+                    <div class="no-selection">选择一个元素来编辑属性</div>
+                </div>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="sidebar-title">✅ 拓扑校验</div>
+                <div id="validationResults">
+                    <div class="empty-state">校验中...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <p class="instructions" id="instructions">
+        💡 选择后拖拽移动 | 右键删除 | "添加连接线"模式点击两个节点创建边 | Delete键删除选中 | Ctrl+Z撤销
+    </p>
+
+    <input type="file" id="fileInput" accept=".json" style="display:none">
+
+    <script type="module" src="dist/main.js"></script>
+</body>
+</html>

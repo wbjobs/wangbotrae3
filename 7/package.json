@@ -1,0 +1,20 @@
+{
+  "name": "raytrace-match3",
+  "version": "1.0.0",
+  "description": "实时光线追踪消消乐游戏 - WebGPU 3D Match-3 Game with Ray Tracing",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "keywords": [
+    "webgpu",
+    "raytracing",
+    "match3",
+    "game",
+    "3d"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {}
+}

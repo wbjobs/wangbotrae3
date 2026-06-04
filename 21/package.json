@@ -1,0 +1,15 @@
+{
+  "name": "p2p-file-transfer",
+  "version": "1.0.0",
+  "description": "WebRTC P2P File Transfer with Socket.io fallback",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "socket.io": "^4.7.2",
+    "cors": "^2.8.5"
+  }
+}

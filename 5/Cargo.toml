@@ -1,0 +1,30 @@
+[package]
+name = "ts-analytics"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+arrow = "53"
+arrow-array = "53"
+arrow-schema = "53"
+arrow-csv = "53"
+arrow-arith = "53"
+parquet = "53"
+datafusion = "43"
+object_store = "0.11"
+tokio = { version = "1", features = ["full"] }
+actix-web = "4"
+actix-cors = "0.7"
+actix-files = "0.6"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+chrono = { version = "0.4", features = ["serde"] }
+chrono-tz = "0.10"
+uuid = { version = "1", features = ["v4"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+parking_lot = "0.12"
+rand = "0.8"
+bytes = "1"
+futures = "0.3"
+async-trait = "0.1"

@@ -1,0 +1,7 @@
+{
+  "interpolation": "linear",
+  "keyframes": [
+    { "frame": 0, "strength": 0.0 },
+    { "frame": 100, "strength": 1.0 }
+  ]
+}

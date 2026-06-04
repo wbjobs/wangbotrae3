@@ -1,0 +1,45 @@
+# Unity
+[Ll]ibrary/
+[Tt]emp/
+[Oo]bj/
+[Bb]uild/
+[Bb]uilds/
+[Ll]ogs/
+[Uu]ser[Ss]ettings/
+
+# Unity Visual Studio Cache
+.vs/
+*.csproj
+*.sln
+*.suo
+*.user
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Go
+backend/vendor/
+backend/bin/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+backend/server
+
+# Node
+frontend/node_modules/
+frontend/dist/
+frontend/.next/
+frontend/out/
+
+# Environment
+*.env.local
+*.env.*.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo

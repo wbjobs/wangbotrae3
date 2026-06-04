@@ -1,0 +1,832 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>时序数据分析仪表盘</title>
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0f1923;
+            color: #e0e6ed;
+            min-height: 100vh;
+        }
+        .header {
+            background: linear-gradient(135deg, #1a2332 0%, #0d1b2a 100%);
+            padding: 16px 24px;
+            border-bottom: 1px solid #1e3a5f;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .header h1 {
+            font-size: 20px;
+            font-weight: 600;
+            background: linear-gradient(90deg, #4fc3f7, #00e5ff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .status-bar {
+            display: flex;
+            gap: 20px;
+            font-size: 13px;
+        }
+        .status-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #4caf50;
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        .container {
+            display: grid;
+            grid-template-columns: 380px 1fr;
+            gap: 16px;
+            padding: 16px;
+            height: calc(100vh - 64px);
+        }
+        .sidebar {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        .panel {
+            background: #1a2332;
+            border: 1px solid #1e3a5f;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        .panel-header {
+            padding: 12px 16px;
+            background: #162232;
+            border-bottom: 1px solid #1e3a5f;
+            font-size: 14px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .panel-header .icon {
+            width: 16px;
+            height: 16px;
+            border-radius: 3px;
+            background: linear-gradient(135deg, #4fc3f7, #0288d1);
+        }
+        .panel-body { padding: 16px; }
+        .sql-editor {
+            width: 100%;
+            min-height: 160px;
+            background: #0d1b2a;
+            border: 1px solid #1e3a5f;
+            border-radius: 6px;
+            padding: 12px;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 13px;
+            color: #4fc3f7;
+            resize: vertical;
+            outline: none;
+            line-height: 1.6;
+        }
+        .sql-editor:focus { border-color: #4fc3f7; }
+        .btn-group {
+            display: flex;
+            gap: 8px;
+            margin-top: 12px;
+        }
+        .btn {
+            padding: 8px 20px;
+            border: none;
+            border-radius: 6px;
+            font-size: 13px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #0288d1, #01579b);
+            color: white;
+        }
+        .btn-primary:hover { background: linear-gradient(135deg, #039be5, #0288d1); }
+        .btn-secondary {
+            background: #1e3a5f;
+            color: #4fc3f7;
+        }
+        .btn-secondary:hover { background: #264a6e; }
+        .btn-danger {
+            background: #3e1a1a;
+            color: #ef5350;
+        }
+        .btn-danger:hover { background: #4e2a2a; }
+        .chart-controls {
+            display: flex;
+            gap: 6px;
+            margin-top: 12px;
+        }
+        .chart-type-btn {
+            padding: 6px 14px;
+            background: #0d1b2a;
+            border: 1px solid #1e3a5f;
+            border-radius: 4px;
+            color: #8ba3be;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .chart-type-btn.active {
+            background: #0288d1;
+            border-color: #0288d1;
+            color: white;
+        }
+        .examples { list-style: none; }
+        .examples li {
+            padding: 8px 12px;
+            margin-bottom: 4px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            font-family: 'Consolas', monospace;
+            background: #0d1b2a;
+            border: 1px solid transparent;
+            transition: all 0.2s;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .examples li:hover {
+            border-color: #4fc3f7;
+            color: #4fc3f7;
+        }
+        .main-area {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        #chart-container {
+            flex: 1;
+            min-height: 400px;
+        }
+        .result-info {
+            padding: 10px 16px;
+            background: #1a2332;
+            border-radius: 6px;
+            font-size: 13px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .result-info .elapsed {
+            color: #4caf50;
+            font-weight: 600;
+        }
+        .data-table-wrap {
+            max-height: 280px;
+            overflow: auto;
+            border-radius: 6px;
+        }
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12px;
+        }
+        .data-table th {
+            background: #162232;
+            padding: 8px 12px;
+            text-align: left;
+            font-weight: 600;
+            color: #4fc3f7;
+            position: sticky;
+            top: 0;
+            border-bottom: 1px solid #1e3a5f;
+        }
+        .data-table td {
+            padding: 6px 12px;
+            border-bottom: 1px solid #111d2b;
+        }
+        .data-table tr:hover td { background: #162232; }
+        .loader {
+            display: none;
+            text-align: center;
+            padding: 40px;
+            color: #4fc3f7;
+        }
+        .loader.active { display: block; }
+        .spinner {
+            display: inline-block;
+            width: 32px;
+            height: 32px;
+            border: 3px solid #1e3a5f;
+            border-top: 3px solid #4fc3f7;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .ingest-form { display: flex; flex-direction: column; gap: 8px; }
+        .form-row {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+        .form-row label {
+            width: 80px;
+            font-size: 12px;
+            color: #8ba3be;
+        }
+        .form-input {
+            flex: 1;
+            background: #0d1b2a;
+            border: 1px solid #1e3a5f;
+            border-radius: 4px;
+            padding: 6px 10px;
+            font-size: 12px;
+            color: #e0e6ed;
+            outline: none;
+        }
+        .form-input:focus { border-color: #4fc3f7; }
+        .view-list { list-style: none; }
+        .view-item {
+            padding: 12px;
+            margin-bottom: 8px;
+            border-radius: 6px;
+            background: #0d1b2a;
+            border: 1px solid #1e3a5f;
+            font-size: 12px;
+        }
+        .view-item-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 6px;
+        }
+        .view-name {
+            font-weight: 600;
+            color: #4fc3f7;
+            font-family: 'Consolas', monospace;
+        }
+        .view-strategy {
+            font-size: 11px;
+            color: #8ba3be;
+            background: #1e3a5f;
+            padding: 2px 8px;
+            border-radius: 4px;
+        }
+        .view-sql {
+            font-family: 'Consolas', monospace;
+            font-size: 11px;
+            color: #607d8b;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            margin-bottom: 8px;
+        }
+        .view-meta {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 11px;
+            color: #607d8b;
+        }
+        .view-actions {
+            display: flex;
+            gap: 4px;
+            margin-top: 8px;
+        }
+        .view-btn {
+            padding: 4px 10px;
+            font-size: 11px;
+            border-radius: 4px;
+            cursor: pointer;
+            border: none;
+        }
+        .view-btn-refresh {
+            background: #1e3a5f;
+            color: #4fc3f7;
+        }
+        .view-btn-delete {
+            background: #3e1a1a;
+            color: #ef5350;
+        }
+        .view-btn-query {
+            background: #1a3a2e;
+            color: #66bb6a;
+        }
+        .strategy-option {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+        .strategy-option label {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+            color: #8ba3be;
+            cursor: pointer;
+        }
+        .empty-views {
+            padding: 20px;
+            text-align: center;
+            color: #607d8b;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>⚡ 时序数据分析服务 — 流批一体</h1>
+        <div class="status-bar">
+            <div class="status-item">
+                <div class="status-dot"></div>
+                <span id="buffer-status">缓冲区: 0 行</span>
+            </div>
+            <div class="status-item">
+                <span id="parquet-status">Parquet分区: 0</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="sidebar">
+            <div class="panel">
+                <div class="panel-header"><div class="icon"></div>SQL 查询</div>
+                <div class="panel-body">
+                    <textarea id="sql-input" class="sql-editor" placeholder="输入 SQL 查询语句...">SELECT 
+  device_id,
+  AVG(temperature) as avg_temp,
+  AVG(humidity) as avg_humidity,
+  AVG(vibration) as avg_vibration
+FROM sensor_data
+GROUP BY device_id
+ORDER BY avg_temp DESC
+LIMIT 20</textarea>
+                    <div class="btn-group">
+                        <button class="btn btn-primary" onclick="executeQuery()">▶ 执行查询</button>
+                        <button class="btn btn-secondary" onclick="clearChart()">清空图表</button>
+                    </div>
+                    <div class="chart-controls">
+                        <button class="chart-type-btn active" data-type="line" onclick="setChartType('line', this)">折线图</button>
+                        <button class="chart-type-btn" data-type="scatter" onclick="setChartType('scatter', this)">散点图</button>
+                        <button class="chart-type-btn" data-type="bar" onclick="setChartType('bar', this)">柱状图</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="panel">
+                <div class="panel-header"><div class="icon"></div>SQL 示例</div>
+                <div class="panel-body">
+                    <ul class="examples">
+                        <li onclick="loadExample(0)">按设备聚合温湿度</li>
+                        <li onclick="loadExample(1)">时间序列趋势</li>
+                        <li onclick="loadExample(2)">振动异常检测</li>
+                        <li onclick="loadExample(3)">按位置统计设备数</li>
+                        <li onclick="loadExample(4)">温湿度相关性</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="panel">
+                <div class="panel-header"><div class="icon"></div>数据摄入</div>
+                <div class="panel-body">
+                    <div class="ingest-form">
+                        <div class="form-row">
+                            <label>设备数量</label>
+                            <input type="number" class="form-input" id="device-count" value="10">
+                        </div>
+                        <div class="form-row">
+                            <label>每设备行数</label>
+                            <input type="number" class="form-input" id="rows-per-device" value="1000">
+                        </div>
+                        <div class="btn-group">
+                            <button class="btn btn-primary" onclick="batchIngest()">📥 批量摄入</button>
+                            <button class="btn btn-secondary" onclick="flushBuffer()">💾 落盘</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="panel">
+                <div class="panel-header"><div class="icon"></div>物化视图</div>
+                <div class="panel-body">
+                    <div class="ingest-form">
+                        <div class="form-row">
+                            <label>视图名称</label>
+                            <input type="text" class="form-input" id="view-name" placeholder="avg_temp_5min">
+                        </div>
+                        <div class="form-row">
+                            <label>SQL</label>
+                            <input type="text" class="form-input" id="view-sql" placeholder="SELECT ...">
+                        </div>
+                        <div class="strategy-option">
+                            <label>
+                                <input type="radio" name="refresh-strategy" value="write_trigger" checked>
+                                写入触发
+                            </label>
+                            <label>
+                                <input type="radio" name="refresh-strategy" value="periodic">
+                                定时刷新
+                            </label>
+                        </div>
+                        <div class="form-row">
+                            <label>间隔(秒)</label>
+                            <input type="number" class="form-input" id="view-interval" value="300">
+                        </div>
+                        <div class="btn-group">
+                            <button class="btn btn-primary" onclick="createView()">➕ 创建视图</button>
+                            <button class="btn btn-secondary" onclick="loadViews()">🔄 刷新列表</button>
+                        </div>
+                    </div>
+                    <div id="views-list" style="margin-top: 12px;"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="main-area">
+            <div class="panel" style="flex:1; display:flex; flex-direction:column;">
+                <div class="panel-header"><div class="icon"></div>查询结果可视化</div>
+                <div class="panel-body" style="flex:1; display:flex; flex-direction:column;">
+                    <div id="chart-container"></div>
+                    <div class="loader" id="loader">
+                        <div class="spinner"></div>
+                        <div style="margin-top:12px;">查询执行中...</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="panel">
+                <div class="panel-header"><div class="icon"></div>查询结果数据</div>
+                <div class="panel-body">
+                    <div class="result-info" id="result-info" style="display:none;">
+                        <span id="row-count"></span>
+                        <span>耗时: <span class="elapsed" id="elapsed-time"></span></span>
+                    </div>
+                    <div class="data-table-wrap" id="data-table-wrap"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let chart = null;
+        let chartType = 'line';
+        let lastQueryResult = null;
+
+        const examples = [
+            `SELECT \n  device_id,\n  AVG(temperature) as avg_temp,\n  AVG(humidity) as avg_humidity,\n  AVG(vibration) as avg_vibration\nFROM sensor_data\nGROUP BY device_id\nORDER BY avg_temp DESC\nLIMIT 20`,
+            `SELECT \n  date_trunc('minute', timestamp) as minute,\n  AVG(temperature) as avg_temp,\n  AVG(humidity) as avg_humidity\nFROM sensor_data\nGROUP BY minute\nORDER BY minute\nLIMIT 100`,
+            `SELECT \n  device_id,\n  AVG(vibration) as avg_vibration,\n  MAX(vibration) as max_vibration\nFROM sensor_data\nWHERE vibration > 5.0\nGROUP BY device_id\nORDER BY max_vibration DESC\nLIMIT 20`,
+            `SELECT \n  location,\n  COUNT(*) as device_count,\n  AVG(temperature) as avg_temp\nFROM sensor_data\nGROUP BY location\nORDER BY device_count DESC`,
+            `SELECT \n  temperature,\n  humidity,\n  vibration\nFROM sensor_data\nLIMIT 500`
+        ];
+
+        function initChart() {
+            const container = document.getElementById('chart-container');
+            chart = echarts.init(container, 'dark');
+            chart.setOption({
+                backgroundColor: 'transparent',
+                grid: { top: 40, right: 30, bottom: 40, left: 60 },
+                tooltip: { trigger: 'axis' },
+                legend: { textStyle: { color: '#8ba3be' } },
+                xAxis: { type: 'category', axisLabel: { color: '#8ba3be' } },
+                yAxis: { type: 'value', axisLabel: { color: '#8ba3be' }, splitLine: { lineStyle: { color: '#1e3a5f' } } },
+                series: []
+            });
+            window.addEventListener('resize', () => chart.resize());
+        }
+
+        function setChartType(type, btn) {
+            chartType = type;
+            document.querySelectorAll('.chart-type-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            if (lastQueryResult) renderChart(lastQueryResult);
+        }
+
+        function loadExample(idx) {
+            document.getElementById('sql-input').value = examples[idx];
+        }
+
+        async function executeQuery() {
+            const sql = document.getElementById('sql-input').value.trim();
+            if (!sql) return;
+
+            document.getElementById('loader').classList.add('active');
+            document.getElementById('chart-container').style.display = 'none';
+
+            try {
+                const resp = await fetch('/api/query', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ sql })
+                });
+                const data = await resp.json();
+
+                if (data.error) {
+                    alert('查询错误: ' + data.error);
+                    return;
+                }
+
+                lastQueryResult = data;
+                renderChart(data);
+                renderTable(data);
+
+                document.getElementById('result-info').style.display = 'flex';
+                document.getElementById('row-count').textContent = `${data.row_count} 行结果`;
+                document.getElementById('elapsed-time').textContent = `${data.elapsed_ms} ms`;
+            } catch (e) {
+                alert('请求失败: ' + e.message);
+            } finally {
+                document.getElementById('loader').classList.remove('active');
+                document.getElementById('chart-container').style.display = 'block';
+                chart && chart.resize();
+            }
+        }
+
+        function renderChart(data) {
+            if (!data.columns || !data.rows || data.rows.length === 0) return;
+
+            const stringCols = [];
+            const numberCols = [];
+
+            data.columns.forEach((col, i) => {
+                const isNum = data.rows.every(r => r[i] === null || typeof r[i] === 'number');
+                if (isNum) numberCols.push(i);
+                else stringCols.push(i);
+            });
+
+            const xCol = stringCols.length > 0 ? stringCols[0] : 0;
+            const xData = data.rows.map(r => r[xCol] != null ? String(r[xCol]) : '');
+
+            const colors = ['#4fc3f7', '#00e5ff', '#4caf50', '#ff9800', '#e91e63', '#9c27b0'];
+
+            const series = numberCols.map((colIdx, sIdx) => ({
+                name: data.columns[colIdx].name,
+                type: chartType,
+                data: data.rows.map(r => r[colIdx]),
+                smooth: chartType === 'line',
+                symbolSize: chartType === 'scatter' ? 6 : 4,
+                lineStyle: { width: 2 },
+                itemStyle: { color: colors[sIdx % colors.length] }
+            }));
+
+            const option = {
+                backgroundColor: 'transparent',
+                grid: { top: 50, right: 30, bottom: 50, left: 70 },
+                tooltip: {
+                    trigger: chartType === 'scatter' ? 'item' : 'axis',
+                    backgroundColor: 'rgba(13,27,42,0.9)',
+                    borderColor: '#1e3a5f',
+                    textStyle: { color: '#e0e6ed' }
+                },
+                legend: {
+                    textStyle: { color: '#8ba3be' },
+                    top: 5
+                },
+                xAxis: {
+                    type: chartType === 'scatter' ? 'value' : 'category',
+                    data: chartType === 'scatter' ? undefined : xData,
+                    name: stringCols.length > 0 ? data.columns[xCol].name : '',
+                    axisLabel: {
+                        color: '#8ba3be',
+                        rotate: xData.length > 15 ? 30 : 0,
+                        fontSize: 11
+                    },
+                    axisLine: { lineStyle: { color: '#1e3a5f' } },
+                    splitLine: { lineStyle: { color: '#1e3a5f', type: 'dashed' } }
+                },
+                yAxis: {
+                    type: 'value',
+                    axisLabel: { color: '#8ba3be' },
+                    axisLine: { lineStyle: { color: '#1e3a5f' } },
+                    splitLine: { lineStyle: { color: '#1e3a5f' } }
+                },
+                series: chartType === 'scatter' && numberCols.length >= 2 ? [{
+                    name: `${data.columns[numberCols[0]].name} vs ${data.columns[numberCols[1]].name}`,
+                    type: 'scatter',
+                    data: data.rows.map(r => [r[numberCols[0]], r[numberCols[1]]]),
+                    symbolSize: 6,
+                    itemStyle: { color: '#4fc3f7', opacity: 0.7 }
+                }] : series
+            };
+
+            chart.setOption(option, true);
+        }
+
+        function renderTable(data) {
+            if (!data.columns || !data.rows) return;
+
+            const maxRows = Math.min(data.rows.length, 200);
+            let html = '<table class="data-table"><thead><tr>';
+            data.columns.forEach(c => { html += `<th>${c.name}</th>`; });
+            html += '</tr></thead><tbody>';
+
+            for (let i = 0; i < maxRows; i++) {
+                html += '<tr>';
+                data.rows[i].forEach(v => {
+                    const display = v === null ? '<i style="color:#555">null</i>' :
+                        typeof v === 'number' ? v.toFixed(4) : v;
+                    html += `<td>${display}</td>`;
+                });
+                html += '</tr>';
+            }
+
+            html += '</tbody></table>';
+            if (data.rows.length > maxRows) {
+                html += `<div style="text-align:center;padding:8px;color:#8ba3be;font-size:12px;">显示前 ${maxRows} 行，共 ${data.rows.length} 行</div>`;
+            }
+
+            document.getElementById('data-table-wrap').innerHTML = html;
+        }
+
+        function clearChart() {
+            chart.setOption({
+                series: []
+            }, true);
+            document.getElementById('data-table-wrap').innerHTML = '';
+            document.getElementById('result-info').style.display = 'none';
+            lastQueryResult = null;
+        }
+
+        async function batchIngest() {
+            const deviceCount = parseInt(document.getElementById('device-count').value) || 10;
+            const rowsPerDevice = parseInt(document.getElementById('rows-per-device').value) || 1000;
+
+            try {
+                const resp = await fetch('/api/ingest/batch', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ device_count: deviceCount, rows_per_device: rowsPerDevice })
+                });
+                const data = await resp.json();
+                updateStatus();
+                alert(`成功摄入 ${data.rows_ingested} 行数据`);
+            } catch (e) {
+                alert('摄入失败: ' + e.message);
+            }
+        }
+
+        async function flushBuffer() {
+            try {
+                const resp = await fetch('/api/flush', { method: 'POST' });
+                const data = await resp.json();
+                updateStatus();
+                alert(data.status === 'flushed' ? `已落盘 ${data.rows} 行` : '无数据需要落盘');
+            } catch (e) {
+                alert('落盘失败: ' + e.message);
+            }
+        }
+
+        async function updateStatus() {
+            try {
+                const resp = await fetch('/api/status');
+                const data = await resp.json();
+                document.getElementById('buffer-status').textContent = `缓冲区: ${data.stream_buffer_rows} 行`;
+                document.getElementById('parquet-status').textContent = `Parquet分区: ${data.parquet_partitions.length}`;
+                renderViewsList(data.materialized_views);
+            } catch (e) {}
+        }
+
+        async function loadViews() {
+            try {
+                const resp = await fetch('/api/views');
+                const data = await resp.json();
+                renderViewsList(data.views);
+            } catch (e) {}
+        }
+
+        function renderViewsList(views) {
+            const container = document.getElementById('views-list');
+            if (!views || views.length === 0) {
+                container.innerHTML = '<div class="empty-views">暂无物化视图</div>';
+                return;
+            }
+
+            let html = '<div class="view-list">';
+            views.forEach(view => {
+                const strategy = view.refresh_strategy.includes('WriteTrigger') ? '写入触发' : '定时刷新';
+                const lastUpdate = view.last_update ? new Date(view.last_update).toLocaleString() : '未刷新';
+                html += `
+                    <div class="view-item">
+                        <div class="view-item-header">
+                            <span class="view-name">${view.name}</span>
+                            <span class="view-strategy">${strategy}</span>
+                        </div>
+                        <div class="view-sql" title="${view.sql}">${view.sql}</div>
+                        <div class="view-meta">
+                            <span>行数: ${view.row_count}</span>
+                            <span>更新: ${lastUpdate}</span>
+                        </div>
+                        <div class="view-actions">
+                            <button class="view-btn view-btn-query" onclick="queryView('${view.table_name}')">查询</button>
+                            <button class="view-btn view-btn-refresh" onclick="refreshView('${view.name}')">刷新</button>
+                            <button class="view-btn view-btn-delete" onclick="deleteView('${view.name}')">删除</button>
+                        </div>
+                    </div>
+                `;
+            });
+            html += '</div>';
+            container.innerHTML = html;
+        }
+
+        async function createView() {
+            const name = document.getElementById('view-name').value.trim();
+            const sql = document.getElementById('view-sql').value.trim();
+            const interval = parseInt(document.getElementById('view-interval').value) || 300;
+            
+            const strategyRadio = document.querySelector('input[name="refresh-strategy"]:checked');
+            const strategy = strategyRadio ? strategyRadio.value : 'write_trigger';
+
+            if (!name || !sql) {
+                alert('请输入视图名称和SQL');
+                return;
+            }
+
+            try {
+                const body = {
+                    name,
+                    sql,
+                    refresh_strategy: strategy
+                };
+                if (strategy === 'write_trigger') {
+                    body.debounce_secs = interval;
+                } else {
+                    body.interval_secs = interval;
+                }
+
+                const resp = await fetch('/api/views', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body)
+                });
+                const data = await resp.json();
+                
+                if (data.error) {
+                    alert('创建失败: ' + data.error);
+                    return;
+                }
+                
+                alert(`视图 ${data.name} 创建成功，当前 ${data.row_count} 行数据`);
+                document.getElementById('view-name').value = '';
+                document.getElementById('view-sql').value = '';
+                loadViews();
+            } catch (e) {
+                alert('创建失败: ' + e.message);
+            }
+        }
+
+        async function refreshView(name) {
+            try {
+                const resp = await fetch(`/api/views/${name}/refresh`, { method: 'POST' });
+                const data = await resp.json();
+                if (data.error) {
+                    alert('刷新失败: ' + data.error);
+                    return;
+                }
+                loadViews();
+            } catch (e) {
+                alert('刷新失败: ' + e.message);
+            }
+        }
+
+        async function deleteView(name) {
+            if (!confirm(`确定要删除视图 ${name} 吗？`)) return;
+            try {
+                const resp = await fetch(`/api/views/${name}`, { method: 'DELETE' });
+                const data = await resp.json();
+                if (data.error) {
+                    alert('删除失败: ' + data.error);
+                    return;
+                }
+                loadViews();
+            } catch (e) {
+                alert('删除失败: ' + e.message);
+            }
+        }
+
+        function queryView(tableName) {
+            document.getElementById('sql-input').value = `SELECT * FROM ${tableName} LIMIT 100`;
+            executeQuery();
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            initChart();
+            updateStatus();
+            setInterval(updateStatus, 5000);
+
+            document.getElementById('sql-input').addEventListener('keydown', (e) => {
+                if (e.ctrlKey && e.key === 'Enter') {
+                    executeQuery();
+                }
+            });
+        });
+    </script>
+</body>
+</html>

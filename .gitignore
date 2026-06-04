@@ -1,0 +1,14 @@
+.gradle/
+.idea/
+build/
+logs/
+out/
+.worktrees/
+AGENTS.md
+CLAUDE.md
+docs/
+.omx/
+.claude
+**/node_modules/
+**/dist/
+**/target/

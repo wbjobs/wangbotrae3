@@ -1,0 +1,32 @@
+2026-06-04 07:21:00 - INFO - ============================================================
+2026-06-04 07:21:00 - INFO - Starting batch processing
+2026-06-04 07:21:00 - INFO - ============================================================
+2026-06-04 07:21:00 - INFO - Found 2 thermal images, 2 visible images, 2 meteo files
+2026-06-04 07:21:00 - INFO - Input directory: ./samples
+2026-06-04 07:21:00 - INFO - Output directory: ./test_results_batch_v2
+2026-06-04 07:21:00 - INFO - 
+2026-06-04 07:21:00 - INFO - ------------------------------------------------------------
+2026-06-04 07:21:00 - INFO - Processing 1/2: sample_001
+2026-06-04 07:21:00 - INFO - [sample_001] Skipping alignment, using resize
+2026-06-04 07:21:00 - INFO - [sample_001] Segmentation complete, threshold: 160.40, canopy pixels: 120322
+2026-06-04 07:21:00 - INFO - [sample_001] CWSI computed: Tdry=44.71°C, Twet=24.54°C
+2026-06-04 07:21:02 - INFO - [sample_001] Output saved: mean_cwsi=0.5857
+2026-06-04 07:21:02 - INFO - ✓ sample_001: SUCCESS
+2026-06-04 07:21:02 - INFO - ------------------------------------------------------------
+2026-06-04 07:21:02 - INFO - Processing 2/2: sample_002
+2026-06-04 07:21:02 - INFO - [sample_002] Skipping alignment, using resize
+2026-06-04 07:21:02 - INFO - [sample_002] Segmentation complete, threshold: 70.92, canopy pixels: 107670
+2026-06-04 07:21:02 - INFO - [sample_002] CWSI computed: Tdry=44.07°C, Twet=23.52°C
+2026-06-04 07:21:03 - INFO - [sample_002] Output saved: mean_cwsi=0.4919
+2026-06-04 07:21:03 - INFO - ✓ sample_002: SUCCESS
+2026-06-04 07:21:03 - INFO - Batch summary saved to: ./test_results_batch_v2\batch_summary.csv
+2026-06-04 07:21:03 - INFO - 
+2026-06-04 07:21:03 - INFO - ============================================================
+2026-06-04 07:21:03 - INFO - Batch processing complete
+2026-06-04 07:21:03 - INFO - ============================================================
+2026-06-04 07:21:03 - INFO - Total samples: 2
+2026-06-04 07:21:03 - INFO - Successfully processed: 2
+2026-06-04 07:21:03 - INFO - Skipped (missing files): 0
+2026-06-04 07:21:03 - INFO - Failed (errors): 0
+2026-06-04 07:21:03 - INFO - Success rate: 100.0%
+2026-06-04 07:21:03 - INFO - ============================================================

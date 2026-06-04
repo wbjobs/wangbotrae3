@@ -1,0 +1,938 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>太空挖矿赌局 - Space Mining Gamble</title>
+  <script src="https://cdn.jsdelivr.net/npm/phaser@3.70.0/dist/phaser.min.js"></script>
+  <script src="/socket.io/socket.io.js"></script>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #0a0a1a;
+      overflow: hidden;
+    }
+    
+    #game-container {
+      width: 100vw;
+      height: 100vh;
+      position: relative;
+    }
+    
+    #login-screen {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(135deg, #0a0a1a 0%, #1a1a3a 50%, #0a0a2a 100%);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      z-index: 100;
+    }
+    
+    .login-title {
+      font-size: 48px;
+      font-weight: bold;
+      color: #00ffff;
+      text-shadow: 0 0 20px #00ffff, 0 0 40px #0088ff;
+      margin-bottom: 20px;
+      text-align: center;
+    }
+    
+    .login-subtitle {
+      font-size: 18px;
+      color: #888;
+      margin-bottom: 40px;
+      text-align: center;
+    }
+    
+    .login-form {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      align-items: center;
+    }
+    
+    .login-input {
+      padding: 15px 25px;
+      font-size: 18px;
+      border: 2px solid #00ffff;
+      border-radius: 10px;
+      background: rgba(0, 255, 255, 0.1);
+      color: #fff;
+      outline: none;
+      width: 300px;
+      text-align: center;
+    }
+    
+    .login-input:focus {
+      box-shadow: 0 0 20px rgba(0, 255, 255, 0.5);
+    }
+    
+    .login-btn {
+      padding: 15px 50px;
+      font-size: 20px;
+      font-weight: bold;
+      color: #000;
+      background: linear-gradient(90deg, #00ffff, #0088ff);
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: all 0.3s;
+      text-transform: uppercase;
+    }
+    
+    .login-btn:hover {
+      transform: scale(1.05);
+      box-shadow: 0 0 30px rgba(0, 255, 255, 0.7);
+    }
+    
+    .game-rules {
+      margin-top: 40px;
+      padding: 20px;
+      background: rgba(0, 255, 255, 0.1);
+      border-radius: 10px;
+      border: 1px solid rgba(0, 255, 255, 0.3);
+      max-width: 500px;
+    }
+    
+    .game-rules h3 {
+      color: #00ffff;
+      margin-bottom: 10px;
+    }
+    
+    .game-rules ul {
+      color: #aaa;
+      list-style: none;
+    }
+    
+    .game-rules li {
+      margin: 5px 0;
+      padding-left: 20px;
+      position: relative;
+    }
+    
+    .game-rules li::before {
+      content: '▸';
+      position: absolute;
+      left: 0;
+      color: #00ffff;
+    }
+    
+    #hud {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      padding: 15px 30px;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      pointer-events: none;
+      z-index: 50;
+    }
+    
+    .hud-left, .hud-right {
+      background: rgba(0, 0, 0, 0.7);
+      padding: 15px 25px;
+      border-radius: 10px;
+      border: 1px solid rgba(0, 255, 255, 0.3);
+    }
+    
+    .hud-item {
+      color: #fff;
+      margin: 8px 0;
+      font-size: 16px;
+    }
+    
+    .hud-label {
+      color: #00ffff;
+      font-weight: bold;
+      margin-right: 10px;
+    }
+    
+    .hud-value {
+      color: #ffdd00;
+      font-weight: bold;
+    }
+    
+    .fuel-bar-container {
+      width: 200px;
+      height: 20px;
+      background: #333;
+      border-radius: 10px;
+      overflow: hidden;
+      margin-top: 5px;
+    }
+    
+    .fuel-bar {
+      height: 100%;
+      background: linear-gradient(90deg, #ff4444, #ffaa00, #44ff44);
+      transition: width 0.3s;
+    }
+    
+    #controls {
+      position: absolute;
+      bottom: 30px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      gap: 30px;
+      z-index: 50;
+    }
+    
+    .game-btn {
+      padding: 20px 60px;
+      font-size: 22px;
+      font-weight: bold;
+      border: none;
+      border-radius: 15px;
+      cursor: pointer;
+      transition: all 0.3s;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+    }
+    
+    .btn-mine {
+      background: linear-gradient(90deg, #ff6600, #ffaa00);
+      color: #000;
+      box-shadow: 0 5px 20px rgba(255, 150, 0, 0.5);
+    }
+    
+    .btn-mine:hover {
+      transform: scale(1.1) translateY(-3px);
+      box-shadow: 0 8px 30px rgba(255, 150, 0, 0.8);
+    }
+    
+    .btn-mine:disabled {
+      background: #555;
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
+    }
+    
+    .btn-return {
+      background: linear-gradient(90deg, #00ff88, #00cc66);
+      color: #000;
+      box-shadow: 0 5px 20px rgba(0, 255, 136, 0.5);
+    }
+    
+    .btn-return:hover {
+      transform: scale(1.1) translateY(-3px);
+      box-shadow: 0 8px 30px rgba(0, 255, 136, 0.8);
+    }
+    
+    .btn-return:disabled {
+      background: #555;
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
+    }
+    
+    #leaderboard-panel {
+      position: absolute;
+      top: 100px;
+      right: 30px;
+      width: 280px;
+      background: rgba(0, 0, 0, 0.8);
+      border-radius: 10px;
+      border: 1px solid rgba(0, 255, 255, 0.3);
+      padding: 15px;
+      z-index: 50;
+      max-height: 400px;
+      overflow-y: auto;
+    }
+    
+    .leaderboard-title {
+      color: #00ffff;
+      font-size: 18px;
+      font-weight: bold;
+      margin-bottom: 15px;
+      text-align: center;
+      border-bottom: 1px solid rgba(0, 255, 255, 0.3);
+      padding-bottom: 10px;
+    }
+    
+    .leaderboard-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 10px;
+      margin: 5px 0;
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 5px;
+      transition: all 0.3s;
+    }
+    
+    .leaderboard-item:hover {
+      background: rgba(0, 255, 255, 0.1);
+    }
+    
+    .leaderboard-rank {
+      font-weight: bold;
+      width: 30px;
+    }
+    
+    .rank-1 { color: #ffdd00; }
+    .rank-2 { color: #cccccc; }
+    .rank-3 { color: #cd7f32; }
+    
+    .leaderboard-name {
+      flex: 1;
+      color: #fff;
+      margin-left: 10px;
+    }
+    
+    .leaderboard-score {
+      color: #ffdd00;
+      font-weight: bold;
+    }
+    
+    #players-panel {
+      position: absolute;
+      top: 100px;
+      left: 30px;
+      width: 250px;
+      background: rgba(0, 0, 0, 0.8);
+      border-radius: 10px;
+      border: 1px solid rgba(0, 255, 255, 0.3);
+      padding: 15px;
+      z-index: 50;
+      max-height: 300px;
+      overflow-y: auto;
+    }
+    
+    .players-title {
+      color: #00ffff;
+      font-size: 16px;
+      font-weight: bold;
+      margin-bottom: 10px;
+    }
+    
+    .player-item {
+      display: flex;
+      align-items: center;
+      padding: 8px;
+      margin: 5px 0;
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 5px;
+    }
+    
+    .player-status {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      margin-right: 10px;
+    }
+    
+    .status-playing { background: #44ff44; }
+    .status-completed { background: #00ffff; }
+    .status-crashed { background: #ff4444; }
+    
+    .player-name {
+      color: #fff;
+      flex: 1;
+    }
+    
+    .player-score {
+      color: #ffdd00;
+      font-weight: bold;
+    }
+    
+    #message-container {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      z-index: 60;
+      pointer-events: none;
+    }
+    
+    .game-message {
+      padding: 20px 40px;
+      font-size: 28px;
+      font-weight: bold;
+      border-radius: 15px;
+      text-align: center;
+      animation: fadeInOut 2s ease-in-out forwards;
+      text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
+    }
+    
+    .message-success {
+      background: rgba(0, 255, 136, 0.9);
+      color: #000;
+      box-shadow: 0 0 30px rgba(0, 255, 136, 0.8);
+    }
+    
+    .message-danger {
+      background: rgba(255, 68, 68, 0.9);
+      color: #fff;
+      box-shadow: 0 0 30px rgba(255, 68, 68, 0.8);
+    }
+    
+    .message-warning {
+      background: rgba(255, 200, 0, 0.9);
+      color: #000;
+      box-shadow: 0 0 30px rgba(255, 200, 0, 0.8);
+    }
+    
+    @keyframes fadeInOut {
+      0% { opacity: 0; transform: scale(0.8); }
+      20% { opacity: 1; transform: scale(1); }
+      80% { opacity: 1; transform: scale(1); }
+      100% { opacity: 0; transform: scale(1.1); }
+    }
+    
+    #game-over-modal {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.9);
+      display: none;
+      justify-content: center;
+      align-items: center;
+      z-index: 200;
+    }
+    
+    .game-over-content {
+      background: linear-gradient(135deg, #1a1a3a, #2a2a5a);
+      padding: 50px;
+      border-radius: 20px;
+      border: 2px solid #00ffff;
+      text-align: center;
+      box-shadow: 0 0 50px rgba(0, 255, 255, 0.5);
+    }
+    
+    .game-over-title {
+      font-size: 48px;
+      font-weight: bold;
+      margin-bottom: 20px;
+    }
+    
+    .title-success { color: #00ff88; }
+    .title-failed { color: #ff4444; }
+    
+    .game-over-stats {
+      margin: 30px 0;
+    }
+    
+    .stat-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 10px 20px;
+      font-size: 18px;
+    }
+    
+    .stat-label {
+      color: #00ffff;
+    }
+    
+    .stat-value {
+      color: #ffdd00;
+      font-weight: bold;
+    }
+    
+    .game-over-buttons {
+      display: flex;
+      gap: 20px;
+      justify-content: center;
+      margin-top: 30px;
+    }
+    
+    .btn-play-again {
+      padding: 15px 40px;
+      font-size: 18px;
+      font-weight: bold;
+      color: #000;
+      background: linear-gradient(90deg, #00ffff, #0088ff);
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+    
+    .btn-play-again:hover {
+      transform: scale(1.05);
+      box-shadow: 0 0 20px rgba(0, 255, 255, 0.7);
+    }
+    
+    #equipment-panel {
+      position: absolute;
+      bottom: 120px;
+      right: 30px;
+      width: 280px;
+      background: rgba(0, 0, 0, 0.8);
+      border-radius: 10px;
+      border: 1px solid rgba(0, 255, 255, 0.3);
+      padding: 15px;
+      z-index: 50;
+    }
+    
+    .equipment-title {
+      color: #00ffff;
+      font-size: 16px;
+      font-weight: bold;
+      margin-bottom: 10px;
+      text-align: center;
+      border-bottom: 1px solid rgba(0, 255, 255, 0.3);
+      padding-bottom: 8px;
+    }
+    
+    .equipment-info {
+      margin: 10px 0;
+      font-size: 14px;
+    }
+    
+    .equipment-level {
+      display: flex;
+      justify-content: space-between;
+      margin: 5px 0;
+      color: #fff;
+    }
+    
+    .equipment-label {
+      color: #aaa;
+    }
+    
+    .equipment-value {
+      color: #ffdd00;
+      font-weight: bold;
+    }
+    
+    .equipment-stars {
+      text-align: center;
+      margin: 10px 0;
+      font-size: 20px;
+    }
+    
+    .star-active {
+      color: #ffdd00;
+      text-shadow: 0 0 10px #ffdd00;
+    }
+    
+    .star-inactive {
+      color: #333;
+    }
+    
+    .btn-upgrade {
+      width: 100%;
+      padding: 12px;
+      font-size: 14px;
+      font-weight: bold;
+      color: #000;
+      background: linear-gradient(90deg, #ff6600, #ffaa00);
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.3s;
+      margin-top: 10px;
+    }
+    
+    .btn-upgrade:hover:not(:disabled) {
+      transform: scale(1.02);
+      box-shadow: 0 0 15px rgba(255, 150, 0, 0.7);
+    }
+    
+    .btn-upgrade:disabled {
+      background: #555;
+      cursor: not-allowed;
+      color: #888;
+    }
+    
+    .upgrade-cost {
+      text-align: center;
+      font-size: 12px;
+      color: #888;
+      margin-top: 5px;
+    }
+    
+    .bonus-info {
+      text-align: center;
+      font-size: 12px;
+      color: #44ff44;
+      margin-top: 5px;
+    }
+    
+    #pirate-modal {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.9);
+      display: none;
+      justify-content: center;
+      align-items: center;
+      z-index: 300;
+    }
+    
+    .pirate-content {
+      background: linear-gradient(135deg, #2a1a1a, #4a2a2a);
+      padding: 40px 50px;
+      border-radius: 20px;
+      border: 2px solid #ff4444;
+      text-align: center;
+      box-shadow: 0 0 60px rgba(255, 68, 68, 0.6);
+      max-width: 500px;
+      animation: pirateShake 0.5s ease-in-out;
+    }
+    
+    @keyframes pirateShake {
+      0%, 100% { transform: translateX(0); }
+      25% { transform: translateX(-10px) rotate(-1deg); }
+      75% { transform: translateX(10px) rotate(1deg); }
+    }
+    
+    .pirate-title {
+      font-size: 36px;
+      font-weight: bold;
+      color: #ff4444;
+      margin-bottom: 10px;
+      text-shadow: 0 0 20px #ff4444;
+    }
+    
+    .pirate-subtitle {
+      font-size: 18px;
+      color: #ff8888;
+      margin-bottom: 25px;
+    }
+    
+    .pirate-info {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 15px;
+      margin: 20px 0;
+      padding: 20px;
+      background: rgba(0, 0, 0, 0.5);
+      border-radius: 10px;
+    }
+    
+    .pirate-stat {
+      text-align: center;
+    }
+    
+    .pirate-stat-label {
+      font-size: 12px;
+      color: #888;
+      margin-bottom: 5px;
+    }
+    
+    .pirate-stat-value {
+      font-size: 24px;
+      font-weight: bold;
+      color: #ffdd00;
+    }
+    
+    .pirate-stat-power {
+      font-size: 28px;
+      font-weight: bold;
+    }
+    
+    .player-power { color: #44ff44; }
+    .pirate-power { color: #ff4444; }
+    
+    .pirate-warning {
+      background: rgba(255, 200, 0, 0.2);
+      border: 1px solid #ffcc00;
+      border-radius: 8px;
+      padding: 12px;
+      margin: 15px 0;
+      color: #ffdd00;
+      font-size: 14px;
+    }
+    
+    .pirate-buttons {
+      display: flex;
+      gap: 20px;
+      justify-content: center;
+      margin-top: 25px;
+    }
+    
+    .btn-fight {
+      padding: 15px 40px;
+      font-size: 18px;
+      font-weight: bold;
+      color: #fff;
+      background: linear-gradient(90deg, #ff4444, #cc0000);
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+    
+    .btn-fight:hover {
+      transform: scale(1.05);
+      box-shadow: 0 0 25px rgba(255, 68, 68, 0.8);
+    }
+    
+    .btn-surrender {
+      padding: 15px 40px;
+      font-size: 18px;
+      font-weight: bold;
+      color: #000;
+      background: linear-gradient(90deg, #888, #555);
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+    
+    .btn-surrender:hover {
+      transform: scale(1.05);
+      box-shadow: 0 0 20px rgba(255, 255, 255, 0.3);
+    }
+    
+    .dice-animation {
+      font-size: 48px;
+      margin: 15px 0;
+      animation: diceRoll 0.3s ease-in-out infinite;
+    }
+    
+    @keyframes diceRoll {
+      0%, 100% { transform: rotate(0deg) scale(1); }
+      50% { transform: rotate(180deg) scale(1.2); }
+    }
+    
+    .battle-result {
+      margin-top: 20px;
+      padding: 20px;
+      border-radius: 10px;
+      font-size: 18px;
+      font-weight: bold;
+    }
+    
+    .battle-victory {
+      background: rgba(0, 255, 136, 0.3);
+      border: 2px solid #00ff88;
+      color: #00ff88;
+    }
+    
+    .battle-defeat {
+      background: rgba(255, 68, 68, 0.3);
+      border: 2px solid #ff4444;
+      color: #ff4444;
+    }
+    
+    .hidden {
+      display: none !important;
+    }
+    
+    ::-webkit-scrollbar {
+      width: 8px;
+    }
+    
+    ::-webkit-scrollbar-track {
+      background: rgba(0, 0, 0, 0.3);
+      border-radius: 4px;
+    }
+    
+    ::-webkit-scrollbar-thumb {
+      background: rgba(0, 255, 255, 0.5);
+      border-radius: 4px;
+    }
+    
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(0, 255, 255, 0.8);
+    }
+  </style>
+</head>
+<body>
+  <div id="game-container">
+    <div id="login-screen">
+      <h1 class="login-title">🚀 太空挖矿赌局</h1>
+      <p class="login-subtitle">Space Mining Gamble - 在小行星带中冒险，是贪婪还是谨慎？</p>
+      <form class="login-form" id="login-form">
+        <input type="text" class="login-input" id="player-name" placeholder="输入你的矿工名称" maxlength="20" required>
+        <button type="submit" class="login-btn">进入小行星带</button>
+      </form>
+      <div class="game-rules">
+        <h3>📋 游戏规则</h3>
+        <ul>
+          <li>每次挖矿有 <span style="color:#44ff44">70%</span> 概率获得价值随机的矿石（10-100）</li>
+          <li>有 <span style="color:#ff4444">30%</span> 概率遭遇空爆，损失1点燃料</li>
+          <li>挖矿成功后有 <span style="color:#ff6600">5%</span> 概率遭遇海盗！</li>
+          <li>遭遇海盗可选择 <span style="color:#ff4444">交战</span> 或 <span style="color:#888">投降</span>（损失50%矿石）</li>
+          <li>交战基于骰子+装备值，可消耗矿石升级装备提升胜率</li>
+          <li>初始燃料为 <span style="color:#ffdd00">10</span>，燃料耗尽则任务失败</li>
+          <li>可随时选择 <span style="color:#00ff88">返航</span> 结算当前矿石价值</li>
+          <li>或者选择 <span style="color:#ffaa00">继续</span> 冒险，追求更高收益！</li>
+        </ul>
+      </div>
+    </div>
+
+    <div id="hud" class="hidden">
+      <div class="hud-left">
+        <div class="hud-item">
+          <span class="hud-label">矿工:</span>
+          <span class="hud-value" id="hud-player-name">-</span>
+        </div>
+        <div class="hud-item">
+          <span class="hud-label">矿石价值:</span>
+          <span class="hud-value" id="hud-ore-value">0</span>
+        </div>
+        <div class="hud-item">
+          <span class="hud-label">挖矿次数:</span>
+          <span class="hud-value" id="hud-mining-count">0</span>
+        </div>
+        <div class="hud-item">
+          <span class="hud-label">飞船装备:</span>
+          <span class="hud-value" id="hud-equipment-level">Lv.1 ⭐</span>
+        </div>
+      </div>
+      <div class="hud-right">
+        <div class="hud-item">
+          <span class="hud-label">燃料:</span>
+          <span class="hud-value" id="hud-fuel">10/10</span>
+          <div class="fuel-bar-container">
+            <div class="fuel-bar" id="fuel-bar" style="width: 100%"></div>
+          </div>
+        </div>
+        <div class="hud-item">
+          <span class="hud-label">成功率:</span>
+          <span class="hud-value" id="hud-success-rate">0%</span>
+        </div>
+        <div class="hud-item">
+          <span class="hud-label">战斗加成:</span>
+          <span class="hud-value" id="hud-combat-bonus">+1</span>
+        </div>
+      </div>
+    </div>
+
+    <div id="players-panel" class="hidden">
+      <div class="players-title">👥 房间内玩家 (<span id="player-count">0</span>)</div>
+      <div id="players-list"></div>
+    </div>
+
+    <div id="leaderboard-panel" class="hidden">
+      <div class="leaderboard-title">🏆 实时排行榜</div>
+      <div id="leaderboard-list"></div>
+    </div>
+
+    <div id="controls" class="hidden">
+      <button class="game-btn btn-mine" id="btn-mine">⛏️ 挖矿</button>
+      <button class="game-btn btn-return" id="btn-return">🏠 返航</button>
+    </div>
+
+    <div id="equipment-panel" class="hidden">
+      <div class="equipment-title">🛸 飞船装备</div>
+      <div class="equipment-info">
+        <div class="equipment-stars" id="equipment-stars">
+          <span class="star-active">⭐</span>
+          <span class="star-inactive">⭐</span>
+          <span class="star-inactive">⭐</span>
+          <span class="star-inactive">⭐</span>
+          <span class="star-inactive">⭐</span>
+        </div>
+        <div class="equipment-level">
+          <span class="equipment-label">等级:</span>
+          <span class="equipment-value" id="equipment-level">1 / 5</span>
+        </div>
+        <div class="equipment-level">
+          <span class="equipment-label">战斗加成:</span>
+          <span class="equipment-value" id="equipment-bonus">+1</span>
+        </div>
+        <div class="equipment-level">
+          <span class="equipment-label">海盗遭遇:</span>
+          <span class="equipment-value" id="pirate-encounters">0</span>
+        </div>
+        <div class="equipment-level">
+          <span class="equipment-label">战斗胜率:</span>
+          <span class="equipment-value" id="pirate-winrate">0%</span>
+        </div>
+      </div>
+      <button class="btn-upgrade" id="btn-upgrade">⚙️ 升级装备</button>
+      <div class="upgrade-cost" id="upgrade-cost">升级需要: 50 矿石</div>
+      <div class="bonus-info" id="next-bonus">升级后: +2 战斗加成</div>
+    </div>
+
+    <div id="pirate-modal">
+      <div class="pirate-content">
+        <h2 class="pirate-title">☠️ 警告：遭遇海盗！</h2>
+        <p class="pirate-subtitle">一艘海盗船挡住了你的去路！</p>
+        
+        <div class="pirate-info">
+          <div class="pirate-stat">
+            <div class="pirate-stat-label">海盗等级</div>
+            <div class="pirate-stat-value" id="pirate-level">?</div>
+          </div>
+          <div class="pirate-stat">
+            <div class="pirate-stat-label">要求进贡</div>
+            <div class="pirate-stat-value" id="pirate-demand">?</div>
+          </div>
+          <div class="pirate-stat">
+            <div class="pirate-stat-label">你的战力</div>
+            <div class="pirate-stat-power player-power" id="player-combat-power">?</div>
+          </div>
+          <div class="pirate-stat">
+            <div class="pirate-stat-label">海盗战力</div>
+            <div class="pirate-stat-power pirate-power" id="pirate-combat-power">?</div>
+          </div>
+        </div>
+        
+        <div class="pirate-warning">
+          ⚔️ 交战：胜利可缴获矿石，失败损失矿石和燃料<br>
+          🏳️ 投降：损失50%当前矿石（<span id="surrender-loss">?</span>）
+        </div>
+        
+        <div id="battle-area" class="hidden">
+          <div class="dice-animation">🎲 🎲</div>
+          <div id="battle-result-text">投掷骰子中...</div>
+        </div>
+        
+        <div id="battle-result" class="hidden"></div>
+        
+        <div class="pirate-buttons" id="pirate-buttons">
+          <button class="btn-fight" id="btn-fight">⚔️ 交战</button>
+          <button class="btn-surrender" id="btn-surrender">🏳️ 投降</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="message-container"></div>
+
+    <div id="game-over-modal">
+      <div class="game-over-content">
+        <h2 class="game-over-title" id="game-over-title">任务结束</h2>
+        <div class="game-over-stats">
+          <div class="stat-row">
+            <span class="stat-label">总矿石价值:</span>
+            <span class="stat-value" id="final-ore-value">0</span>
+          </div>
+          <div class="stat-row">
+            <span class="stat-label">挖矿次数:</span>
+            <span class="stat-value" id="final-mining-count">0</span>
+          </div>
+          <div class="stat-row">
+            <span class="stat-label">成功次数:</span>
+            <span class="stat-value" id="final-success-count">0</span>
+          </div>
+          <div class="stat-row">
+            <span class="stat-label">成功率:</span>
+            <span class="stat-value" id="final-success-rate">0%</span>
+          </div>
+          <div class="stat-row">
+            <span class="stat-label">空爆次数:</span>
+            <span class="stat-value" id="final-blast-count">0</span>
+          </div>
+        </div>
+        <div class="game-over-buttons">
+          <button class="btn-play-again" id="btn-play-again">🔄 再来一局</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/js/game.js"></script>
+</body>
+</html>

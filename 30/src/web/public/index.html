@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>剪贴板历史中心</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app">
+    <header class="header">
+      <div class="header-content">
+        <h1 class="title">📋 剪贴板历史中心</h1>
+        <div class="status-indicator">
+          <span class="status-dot" id="statusDot"></span>
+          <span class="status-text" id="statusText">连接中...</span>
+        </div>
+      </div>
+    </header>
+
+    <div class="toolbar">
+      <div class="filters">
+        <select id="typeFilter" class="filter-select">
+          <option value="">全部类型</option>
+          <option value="text">📝 文本</option>
+          <option value="image">🖼️ 图片</option>
+        </select>
+
+        <select id="categoryFilter" class="filter-select">
+          <option value="">全部标签</option>
+        </select>
+
+        <input type="date" id="startDate" class="filter-date" placeholder="开始日期">
+        <span class="filter-sep">至</span>
+        <input type="date" id="endDate" class="filter-date" placeholder="结束日期">
+
+        <input type="text" id="searchInput" class="search-input" placeholder="🔍 搜索文本内容...">
+      </div>
+
+      <div class="toolbar-actions">
+        <button id="refreshBtn" class="btn btn-secondary">🔄 刷新</button>
+        <span class="count-badge" id="countBadge">共 0 条</span>
+      </div>
+    </div>
+
+    <div class="main-content">
+      <div class="pinned-section" id="pinnedSection" style="display: none;">
+        <h3 class="section-title">⭐ 固定项</h3>
+        <div class="pinned-list" id="pinnedList"></div>
+      </div>
+
+      <div class="virtual-scroll-container" id="virtualScrollContainer">
+        <div class="virtual-scroll-padding" id="virtualScrollPadding"></div>
+        <div class="virtual-scroll-content" id="virtualScrollContent"></div>
+      </div>
+    </div>
+
+    <div id="imageModal" class="modal">
+      <div class="modal-content">
+        <span class="modal-close" id="modalClose">&times;</span>
+        <img id="modalImage" src="" alt="预览图片">
+      </div>
+    </div>
+
+    <div id="toast" class="toast"></div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

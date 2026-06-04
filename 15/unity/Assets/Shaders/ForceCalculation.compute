@@ -1,0 +1,148 @@
+#pragma kernel CalculateForces
+
+struct VoxelData
+{
+    uint Active;
+    float Strength;
+    float3 Velocity;
+    float Pressure;
+    float Stress;
+};
+
+struct WindParams
+{
+    float3 Direction;
+    float Speed;
+    float Turbulence;
+    float DeltaTime;
+};
+
+RWStructuredBuffer<VoxelData> Voxels;
+StructuredBuffer<WindParams> WindParams;
+
+int GridSize;
+float VoxelSize;
+
+float hash(float3 p)
+{
+    p = frac(p * 0.3183099f + 0.1f);
+    p *= 17.0f;
+    return frac(p.x * p.y * p.z * (p.x + p.y + p.z));
+}
+
+float3 noise3D(float3 p)
+{
+    float3 i = floor(p);
+    float3 f = frac(p);
+    f = f * f * (3.0f - 2.0f * f);
+
+    float n000 = hash(i + float3(0, 0, 0));
+    float n100 = hash(i + float3(1, 0, 0));
+    float n010 = hash(i + float3(0, 1, 0));
+    float n110 = hash(i + float3(1, 1, 0));
+    float n001 = hash(i + float3(0, 0, 1));
+    float n101 = hash(i + float3(1, 0, 1));
+    float n011 = hash(i + float3(0, 1, 1));
+    float n111 = hash(i + float3(1, 1, 1));
+
+    float nx00 = lerp(n000, n100, f.x);
+    float nx10 = lerp(n010, n110, f.x);
+    float nx01 = lerp(n001, n101, f.x);
+    float nx11 = lerp(n011, n111, f.x);
+
+    float nxy0 = lerp(nx00, nx10, f.y);
+    float nxy1 = lerp(nx01, nx11, f.y);
+
+    float nxyz = lerp(nxy0, nxy1, f.z);
+
+    return float3(
+        sin(nxyz * 6.28318f),
+        cos(nxyz * 6.28318f * 0.7f),
+        sin(nxyz * 6.28318f * 1.3f)
+    );
+}
+
+[numthreads(8, 8, 8)]
+void CalculateForces(uint3 id : SV_DispatchThreadID)
+{
+    if (id.x >= GridSize || id.y >= GridSize || id.z >= GridSize)
+        return;
+
+    int index = id.x + id.y * GridSize + id.z * GridSize * GridSize;
+
+    if (Voxels[index].Active == 0)
+        return;
+
+    WindParams wind = WindParams[0];
+
+    float3 voxelPos = float3(id.x, id.y, id.z) * VoxelSize;
+    float time = wind.DeltaTime * 1000.0f;
+
+    float3 turbulence = noise3D(voxelPos * 0.1f + float3(time * 0.5f, time * 0.3f, time * 0.7f));
+    turbulence *= wind.Turbulence * wind.Speed * 0.5f;
+
+    float3 windVelocity = wind.Direction * wind.Speed + turbulence;
+
+    int neighbors[6];
+    neighbors[0] = (id.x > 0) ? (id.x - 1) + id.y * GridSize + id.z * GridSize * GridSize : -1;
+    neighbors[1] = (id.x < GridSize - 1) ? (id.x + 1) + id.y * GridSize + id.z * GridSize * GridSize : -1;
+    neighbors[2] = (id.y > 0) ? id.x + (id.y - 1) * GridSize + id.z * GridSize * GridSize : -1;
+    neighbors[3] = (id.y < GridSize - 1) ? id.x + (id.y + 1) * GridSize + id.z * GridSize * GridSize : -1;
+    neighbors[4] = (id.z > 0) ? id.x + id.y * GridSize + (id.z - 1) * GridSize * GridSize : -1;
+    neighbors[5] = (id.z < GridSize - 1) ? id.x + id.y * GridSize + (id.z + 1) * GridSize * GridSize : -1;
+
+    float exposedArea = 0.0f;
+    float3 normal = float3(0, 0, 0);
+
+    for (int i = 0; i < 6; i++)
+    {
+        if (neighbors[i] >= 0 && Voxels[neighbors[i]].Active == 0)
+        {
+            exposedArea += VoxelSize * VoxelSize;
+
+            if (i == 0) normal.x -= 1;
+            if (i == 1) normal.x += 1;
+            if (i == 2) normal.y -= 1;
+            if (i == 3) normal.y += 1;
+            if (i == 4) normal.z -= 1;
+            if (i == 5) normal.z += 1;
+        }
+    }
+
+    if (length(normal) > 0)
+        normal = normalize(normal);
+
+    float3 relativeVelocity = windVelocity - Voxels[index].Velocity;
+    float dotProduct = dot(relativeVelocity, normal);
+    float dynamicPressure = 0.5f * 1.225f * dot(relativeVelocity, relativeVelocity);
+    float dragCoefficient = 1.0f + wind.Turbulence * 0.5f;
+
+    float3 force = dragCoefficient * dynamicPressure * exposedArea * normal * sign(dotProduct) * 0.001f;
+
+    int supportCount = 0;
+    for (int i = 0; i < 6; i++)
+    {
+        if (neighbors[i] >= 0 && Voxels[neighbors[i]].Active == 1)
+        {
+            supportCount++;
+        }
+    }
+
+    float supportFactor = 1.0f - (float)supportCount / 6.0f;
+    float leverage = 1.0f + (float)id.y / (float)GridSize;
+
+    float stressMagnitude = length(force) * supportFactor * leverage;
+    float stressTransfer = stressMagnitude * 0.3f;
+
+    for (int i = 0; i < 6; i++)
+    {
+        if (neighbors[i] >= 0 && Voxels[neighbors[i]].Active == 1)
+        {
+            Voxels[neighbors[i]].Stress += stressTransfer * wind.DeltaTime;
+        }
+    }
+
+    Voxels[index].Stress += stressMagnitude * wind.DeltaTime;
+    Voxels[index].Velocity += force * wind.DeltaTime;
+    Voxels[index].Pressure = dynamicPressure;
+}

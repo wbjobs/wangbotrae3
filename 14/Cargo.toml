@@ -1,0 +1,21 @@
+[package]
+name = "sparse-matrix-tool"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "sparse-check"
+path = "src/bin/sparse_check.rs"
+
+[[bin]]
+name = "sparse-diff"
+path = "src/bin/sparse_diff.rs"
+
+[dependencies]
+ndarray = "0.15"
+sprs = "0.11"
+clap = { version = "4.0", features = ["derive"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+petgraph = "0.6"
+thiserror = "1.0"

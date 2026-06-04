@@ -1,0 +1,3 @@
+sample_name,Tdry_C,Twet_C,mean_canopy_temp_C,mean_cwsi,std_cwsi,cv_cwsi,canopy_area_pixels,fraction_below_03
+sample_001,44.71,24.54,32.89,0.5860,0.0956,0.1631,121244,0.0000
+sample_002,44.07,23.52,33.96,0.4921,0.0794,0.1613,106830,0.0376

@@ -1,0 +1,49 @@
+{
+  "cachedAt": "2026-06-03T22:49:26.761Z",
+  "root": {
+    "name": "package-c",
+    "versionRange": "1.0.0",
+    "resolved": "1.0.0"
+  },
+  "dependencyTree": {
+    "name": "package-c",
+    "version": "1.0.0",
+    "versionRange": "1.0.0",
+    "dependencies": {
+      "lodash": {
+        "name": "lodash",
+        "version": "3.11.0",
+        "versionRange": "^3.0.0",
+        "requiredBy": [
+          {
+            "name": "package-c",
+            "version": "1.0.0",
+            "range": "^3.0.0"
+          }
+        ],
+        "dependencies": {}
+      },
+      "axios": {
+        "name": "axios",
+        "version": "1.2.1",
+        "versionRange": "~1.2.0",
+        "requiredBy": [
+          {
+            "name": "package-c",
+            "version": "1.0.0",
+            "range": "~1.2.0"
+          }
+        ],
+        "dependencies": {}
+      }
+    }
+  },
+  "resolved": {
+    "package-c": "1.0.0",
+    "lodash": "3.11.0",
+    "axios": "1.2.1"
+  },
+  "hasConflicts": false,
+  "conflicts": [],
+  "contentHash": "16c64a7e910e811e"
+}

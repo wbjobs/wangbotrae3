@@ -1,0 +1,83 @@
+#pragma kernel CheckDestruction
+
+struct VoxelData
+{
+    uint Active;
+    float Strength;
+    float3 Velocity;
+    float Pressure;
+    float Stress;
+};
+
+RWStructuredBuffer<VoxelData> Voxels;
+RWByteAddressBuffer DestroyedCount;
+
+int GridSize;
+float ForceThreshold;
+
+[numthreads(8, 8, 8)]
+void CheckDestruction(uint3 id : SV_DispatchThreadID)
+{
+    if (id.x >= GridSize || id.y >= GridSize || id.z >= GridSize)
+        return;
+
+    int index = id.x + id.y * GridSize + id.z * GridSize * GridSize;
+
+    if (Voxels[index].Active == 0 || Voxels[index].Strength <= 0)
+        return;
+
+    float stress = Voxels[index].Stress;
+    float strength = Voxels[index].Strength;
+
+    if (stress > strength * ForceThreshold)
+    {
+        int neighbors[6];
+        neighbors[0] = (id.x > 0) ? (id.x - 1) + id.y * GridSize + id.z * GridSize * GridSize : -1;
+        neighbors[1] = (id.x < GridSize - 1) ? (id.x + 1) + id.y * GridSize + id.z * GridSize * GridSize : -1;
+        neighbors[2] = (id.y > 0) ? id.x + (id.y - 1) * GridSize + id.z * GridSize * GridSize : -1;
+        neighbors[3] = (id.y < GridSize - 1) ? id.x + (id.y + 1) * GridSize + id.z * GridSize * GridSize : -1;
+        neighbors[4] = (id.z > 0) ? id.x + id.y * GridSize + (id.z - 1) * GridSize * GridSize : -1;
+        neighbors[5] = (id.z < GridSize - 1) ? id.x + id.y * GridSize + (id.z + 1) * GridSize * GridSize : -1;
+
+        int supportCount = 0;
+        for (int i = 0; i < 6; i++)
+        {
+            if (neighbors[i] >= 0 && Voxels[neighbors[i]].Active == 1)
+            {
+                supportCount++;
+            }
+        }
+
+        float structuralIntegrity = (float)supportCount / 6.0f;
+        float adjustedThreshold = ForceThreshold * (1.0f - structuralIntegrity * 0.5f);
+
+        if (stress > strength * adjustedThreshold)
+        {
+            Voxels[index].Active = 0;
+
+            float crackPropagation = (stress - strength * adjustedThreshold) / strength;
+
+            for (int i = 0; i < 6; i++)
+            {
+                if (neighbors[i] >= 0 && Voxels[neighbors[i]].Active == 1)
+                {
+                    Voxels[neighbors[i]].Stress += Voxels[index].Stress * crackPropagation * 0.2f;
+                    Voxels[neighbors[i]].Strength *= 0.95f;
+                }
+            }
+
+            uint originalValue;
+            uint newValue;
+            uint compare;
+
+            do
+            {
+                originalValue = DestroyedCount.Load(0);
+                compare = originalValue;
+                newValue = originalValue + 1;
+            } while (DestroyedCount.InterlockedCompareExchange(0, newValue, compare) != compare);
+        }
+    }
+
+    Voxels[index].Stress *= 0.99f;
+}

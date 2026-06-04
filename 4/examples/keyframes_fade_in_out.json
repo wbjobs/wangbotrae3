@@ -1,0 +1,8 @@
+{
+  "interpolation": "bezier",
+  "keyframes": [
+    { "frame": 0, "strength": 0.0 },
+    { "frame": 300, "strength": 1.0 },
+    { "frame": 600, "strength": 0.0 }
+  ]
+}

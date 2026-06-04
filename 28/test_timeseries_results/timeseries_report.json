@@ -1,0 +1,65 @@
+{
+  "input_directory": "./test_timeseries_samples",
+  "output_directory": "./test_timeseries_results",
+  "total_time_points": 7,
+  "valid_time_points": 6,
+  "skipped_time_points": 1,
+  "time_range": {
+    "start": "2026-06-01T12:00:00",
+    "end": "2026-06-07T12:00:00"
+  },
+  "cwsi_statistics": {
+    "mean": 0.3987550884485245,
+    "std": 0.03886638737983801,
+    "min": 0.33633628487586975,
+    "max": 0.4654856324195862,
+    "median": 0.40273359417915344,
+    "latest": 0.33633628487586975,
+    "trend": {
+      "slope_per_day": -0.012449521039213455,
+      "r_squared": 0.47881055774499837,
+      "p_value": 0.12771713137881363,
+      "direction": "decreasing"
+    }
+  },
+  "skipped_points": [
+    {
+      "timestamp": "2026-06-04T12:00:00",
+      "sample_name": "20260604_1200",
+      "error": "Missing files: visible, meteo",
+      "has_thermal": true,
+      "has_visible": false,
+      "has_meteo": false
+    }
+  ],
+  "prediction": {
+    "days_ahead": 3,
+    "future_dates": [
+      "2026-06-08T12:00:00",
+      "2026-06-09T12:00:00",
+      "2026-06-10T12:00:00"
+    ],
+    "predicted_cwsi": [
+      0.34895700429167065,
+      0.33650748325245716,
+      0.32405796221324373
+    ],
+    "prediction_ci_lower": [
+      0.22316776656441428,
+      0.1995801629464029,
+      0.17464073677614425
+    ],
+    "prediction_ci_upper": [
+      0.474746242018927,
+      0.4734348035585114,
+      0.47347518765034324
+    ],
+    "linear_regression": {
+      "slope": -0.012449521039213455,
+      "intercept": 0.4361036515661648,
+      "r_squared": 0.47881055774499837,
+      "p_value": 0.12771713137881363,
+      "std_error": 0.006494393414979236
+    }
+  }
+}

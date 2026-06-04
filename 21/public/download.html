@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>文件下载 - P2P传输</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
+    }
+    .container {
+      background: white;
+      border-radius: 16px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+      padding: 40px;
+      max-width: 600px;
+      width: 100%;
+    }
+    h1 {
+      color: #333;
+      margin-bottom: 30px;
+      text-align: center;
+      font-size: 28px;
+    }
+    .input-group {
+      margin-bottom: 20px;
+    }
+    .input-group label {
+      display: block;
+      margin-bottom: 10px;
+      color: #666;
+      font-weight: 500;
+    }
+    .code-inputs {
+      display: flex;
+      justify-content: center;
+      gap: 8px;
+      margin-bottom: 20px;
+    }
+    .code-inputs input {
+      width: 45px;
+      height: 55px;
+      text-align: center;
+      font-size: 24px;
+      font-weight: bold;
+      border: 2px solid #e0e0e0;
+      border-radius: 8px;
+      text-transform: uppercase;
+      transition: all 0.3s;
+      font-family: 'Courier New', monospace;
+    }
+    .code-inputs input:focus {
+      outline: none;
+      border-color: #667eea;
+      box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.2);
+    }
+    .btn {
+      width: 100%;
+      padding: 15px;
+      border: none;
+      border-radius: 8px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+    }
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+    }
+    .btn:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      transform: none;
+    }
+    .btn-success {
+      background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+      color: white;
+    }
+    .btn-success:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 5px 20px rgba(17, 153, 142, 0.4);
+    }
+    .file-info {
+      background: #f8f9ff;
+      border-radius: 8px;
+      padding: 20px;
+      margin-bottom: 20px;
+      display: none;
+    }
+    .file-info.show {
+      display: block;
+    }
+    .file-info .label {
+      color: #666;
+      font-size: 14px;
+      margin-bottom: 5px;
+    }
+    .file-info .name {
+      font-weight: 600;
+      color: #333;
+      font-size: 18px;
+      margin-bottom: 10px;
+      word-break: break-all;
+    }
+    .file-info .size {
+      color: #666;
+      font-size: 14px;
+    }
+    .file-info .md5 {
+      color: #999;
+      font-size: 12px;
+      margin-top: 10px;
+      font-family: 'Courier New', monospace;
+    }
+    .status {
+      text-align: center;
+      padding: 15px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      display: none;
+    }
+    .status.show {
+      display: block;
+    }
+    .status.connecting {
+      background: #fff3cd;
+      color: #856404;
+    }
+    .status.connected {
+      background: #d4edda;
+      color: #155724;
+    }
+    .status.error {
+      background: #f8d7da;
+      color: #721c24;
+    }
+    .status.complete {
+      background: #d4edda;
+      color: #155724;
+    }
+    .connection-type {
+      font-size: 12px;
+      margin-top: 5px;
+      opacity: 0.8;
+    }
+    .progress-container {
+      margin-bottom: 20px;
+      display: none;
+    }
+    .progress-container.show {
+      display: block;
+    }
+    .progress-header {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 10px;
+      font-size: 14px;
+      color: #666;
+    }
+    .progress-bar {
+      height: 12px;
+      background: #e0e0e0;
+      border-radius: 6px;
+      overflow: hidden;
+    }
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #667eea, #764ba2);
+      border-radius: 6px;
+      transition: width 0.3s;
+      width: 0%;
+    }
+    .nav {
+      text-align: center;
+      margin-top: 20px;
+    }
+    .nav a {
+      color: #667eea;
+      text-decoration: none;
+      font-size: 14px;
+    }
+    .nav a:hover {
+      text-decoration: underline;
+    }
+    .resume-info {
+      background: #e7f3ff;
+      border-radius: 6px;
+      padding: 10px;
+      margin-bottom: 15px;
+      font-size: 14px;
+      color: #0066cc;
+      display: none;
+    }
+    .resume-info.show {
+      display: block;
+    }
+    .verifying {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      padding: 15px;
+      background: #e7f3ff;
+      border-radius: 6px;
+      margin-bottom: 15px;
+      display: none;
+    }
+    .verifying.show {
+      display: flex;
+    }
+    .spinner {
+      width: 20px;
+      height: 20px;
+      border: 2px solid #667eea;
+      border-top-color: transparent;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    .check-status {
+      text-align: center;
+      margin-top: 10px;
+      font-size: 14px;
+      color: #666;
+    }
+    .check-status a {
+      color: #667eea;
+      text-decoration: none;
+      cursor: pointer;
+    }
+    .check-status a:hover {
+      text-decoration: underline;
+    }
+    .quality-panel {
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 20px;
+      display: none;
+    }
+    .quality-panel.show {
+      display: block;
+    }
+    .quality-panel h3 {
+      color: #fff;
+      margin-bottom: 15px;
+      font-size: 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .quality-panel h3::before {
+      content: '📡';
+    }
+    .quality-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+    .quality-item {
+      background: rgba(255,255,255,0.1);
+      border-radius: 8px;
+      padding: 12px;
+    }
+    .quality-item .label {
+      color: #8892b0;
+      font-size: 12px;
+      margin-bottom: 4px;
+    }
+    .quality-item .value {
+      color: #fff;
+      font-size: 18px;
+      font-weight: 600;
+      font-family: 'Courier New', monospace;
+    }
+    .quality-item .value.good {
+      color: #4ade80;
+    }
+    .quality-item .value.warning {
+      color: #fbbf24;
+    }
+    .quality-item .value.bad {
+      color: #f87171;
+    }
+    .quality-score {
+      grid-column: span 2;
+      text-align: center;
+    }
+    .quality-score .score-circle {
+      width: 80px;
+      height: 80px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 10px;
+      font-size: 24px;
+      font-weight: bold;
+      position: relative;
+    }
+    .quality-score .score-circle::before {
+      content: '';
+      position: absolute;
+      inset: -4px;
+      border-radius: 50%;
+      background: conic-gradient(#4ade80 var(--score), #333 0);
+      z-index: -1;
+      filter: blur(2px);
+    }
+    .quality-score .score-circle span {
+      background: #1a1a2e;
+      width: 72px;
+      height: 72px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .channel-badge {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    .channel-badge.webrtc {
+      background: linear-gradient(135deg, #4ade80, #22c55e);
+      color: #052e16;
+    }
+    .channel-badge.relay {
+      background: linear-gradient(135deg, #60a5fa, #3b82f6);
+      color: #1e3a8a;
+    }
+    .channel-badge.probing {
+      background: linear-gradient(135deg, #fbbf24, #f59e0b);
+      color: #78350f;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>📥 下载文件</h1>
+    
+    <div class="input-group" id="codeInputGroup">
+      <label>输入6位会话码</label>
+      <div class="code-inputs">
+        <input type="text" maxlength="1" data-index="0">
+        <input type="text" maxlength="1" data-index="1">
+        <input type="text" maxlength="1" data-index="2">
+        <input type="text" maxlength="1" data-index="3">
+        <input type="text" maxlength="1" data-index="4">
+        <input type="text" maxlength="1" data-index="5">
+      </div>
+      <button class="btn btn-primary" id="joinBtn">加入会话</button>
+      <div class="check-status">
+        <a id="checkStatusLink">检查会话状态</a>
+      </div>
+    </div>
+    
+    <div class="resume-info" id="resumeInfo">
+      🔄 检测到未完成的传输，将从断点继续
+    </div>
+    
+    <div class="file-info" id="fileInfo">
+      <div class="label">文件名</div>
+      <div class="name" id="fileName"></div>
+      <div class="size" id="fileSize"></div>
+      <div class="md5" id="fileMd5"></div>
+    </div>
+    
+    <div class="status" id="status"></div>
+    
+    <div class="quality-panel" id="qualityPanel">
+      <h3>链路质量监控</h3>
+      <div class="quality-grid">
+        <div class="quality-item">
+          <div class="label">当前通道</div>
+          <div class="value"><span class="channel-badge probing" id="channelBadge">等待选择</span></div>
+        </div>
+        <div class="quality-item">
+          <div class="label">传输速度</div>
+          <div class="value" id="speedValue">-- KB/s</div>
+        </div>
+        <div class="quality-item">
+          <div class="label">已接收</div>
+          <div class="value" id="receivedValue">0 / 0</div>
+        </div>
+        <div class="quality-item">
+          <div class="label">丢包处理</div>
+          <div class="value" id="recoveryValue">0 次</div>
+        </div>
+        <div class="quality-item quality-score">
+          <div class="score-circle" id="scoreCircle" style="--score: 0%">
+            <span id="scoreValue">--</span>
+          </div>
+          <div class="label">通道质量评分</div>
+        </div>
+      </div>
+    </div>
+    
+    <div class="progress-container" id="progressContainer">
+      <div class="progress-header">
+        <span>接收进度</span>
+        <span id="progressText">0%</span>
+      </div>
+      <div class="progress-bar">
+        <div class="progress-fill" id="progressFill"></div>
+      </div>
+    </div>
+    
+    <div class="verifying" id="verifying">
+      <div class="spinner"></div>
+      <span>正在校验文件完整性...</span>
+    </div>
+    
+    <button class="btn btn-success" id="downloadBtn" style="display: none;">下载文件</button>
+    
+    <div class="nav">
+      <a href="upload.html">← 去上传页面</a>
+    </div>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="spark-md5.min.js"></script>
+  <script src="downloader.js"></script>
+</body>
+</html>

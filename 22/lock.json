@@ -1,0 +1,17 @@
+{
+  "name": "package-c",
+  "version": "1.0.0",
+  "lockfileVersion": 1,
+  "timestamp": "2026-06-03T22:49:26.762Z",
+  "dependencies": {
+    "package-c": {
+      "version": "1.0.0"
+    },
+    "lodash": {
+      "version": "3.11.0"
+    },
+    "axios": {
+      "version": "1.2.1"
+    }
+  }
+}

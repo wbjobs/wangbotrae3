@@ -1,0 +1,687 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pcap Network Analyzer</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    :root {
+      --bg-primary: #0f172a;
+      --bg-secondary: #1e293b;
+      --bg-tertiary: #334155;
+      --text-primary: #f1f5f9;
+      --text-secondary: #94a3b8;
+      --text-muted: #64748b;
+      --accent: #3b82f6;
+      --accent-hover: #2563eb;
+      --accent-dim: #1d4ed8;
+      --success: #22c55e;
+      --warning: #f59e0b;
+      --danger: #ef4444;
+      --border: #334155;
+      --card-shadow: 0 4px 6px -1px rgba(0,0,0,0.3), 0 2px 4px -2px rgba(0,0,0,0.2);
+    }
+    body {
+      font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      height: 100vh;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+    .toolbar {
+      background: var(--bg-secondary);
+      border-bottom: 1px solid var(--border);
+      padding: 10px 20px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-shrink: 0;
+    }
+    .toolbar h1 {
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--accent);
+      margin-right: auto;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .toolbar h1 svg { width: 22px; height: 22px; }
+    .btn {
+      padding: 7px 16px;
+      border: none;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.15s;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .btn-primary { background: var(--accent); color: #fff; }
+    .btn-primary:hover { background: var(--accent-hover); }
+    .btn-secondary { background: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border); }
+    .btn-secondary:hover { background: var(--border); }
+    .btn-success { background: var(--success); color: #fff; }
+    .btn-success:hover { opacity: 0.9; }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .stats-bar {
+      background: var(--bg-secondary);
+      border-bottom: 1px solid var(--border);
+      padding: 6px 20px;
+      display: flex;
+      align-items: center;
+      gap: 24px;
+      font-size: 12px;
+      color: var(--text-secondary);
+      flex-shrink: 0;
+    }
+    .stats-bar .stat-item { display: flex; align-items: center; gap: 6px; }
+    .stats-bar .stat-value { color: var(--text-primary); font-weight: 600; }
+    .main-layout {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+    }
+    .sidebar {
+      width: 320px;
+      min-width: 280px;
+      background: var(--bg-secondary);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      flex-shrink: 0;
+    }
+    .filter-panel {
+      padding: 12px;
+      border-bottom: 1px solid var(--border);
+    }
+    .filter-panel h3 {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--text-muted);
+      margin-bottom: 8px;
+    }
+    .filter-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+    }
+    .filter-grid .full-width { grid-column: 1 / -1; }
+    .filter-input {
+      background: var(--bg-primary);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 5px 8px;
+      font-size: 12px;
+      color: var(--text-primary);
+      width: 100%;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    .filter-input:focus { border-color: var(--accent); }
+    .filter-input::placeholder { color: var(--text-muted); }
+    .filter-actions { display: flex; gap: 6px; margin-top: 8px; }
+    .flow-list-header {
+      padding: 8px 12px;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--text-muted);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .flow-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 4px;
+    }
+    .flow-list::-webkit-scrollbar { width: 6px; }
+    .flow-list::-webkit-scrollbar-track { background: transparent; }
+    .flow-list::-webkit-scrollbar-thumb { background: var(--bg-tertiary); border-radius: 3px; }
+    .flow-item {
+      padding: 8px 10px;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background 0.15s;
+      margin-bottom: 2px;
+      border: 1px solid transparent;
+    }
+    .flow-item:hover { background: var(--bg-tertiary); }
+    .flow-item.active { background: var(--accent-dim); border-color: var(--accent); }
+    .flow-item .flow-endpoints {
+      font-size: 12px;
+      font-weight: 500;
+      margin-bottom: 3px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .flow-item .flow-endpoints .arrow { color: var(--text-muted); margin: 0 4px; }
+    .flow-item .flow-meta {
+      font-size: 11px;
+      color: var(--text-muted);
+      display: flex;
+      gap: 8px;
+    }
+    .proto-badge {
+      display: inline-block;
+      padding: 1px 5px;
+      border-radius: 3px;
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.3px;
+    }
+    .proto-tcp { background: rgba(59,130,246,0.2); color: #60a5fa; }
+    .proto-udp { background: rgba(34,197,94,0.2); color: #4ade80; }
+    .content-area {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .chart-container {
+      flex: 1;
+      position: relative;
+      overflow: hidden;
+      background: var(--bg-primary);
+    }
+    .chart-container svg { width: 100%; height: 100%; }
+    .chart-empty {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      color: var(--text-muted);
+      gap: 12px;
+    }
+    .chart-empty svg { width: 64px; height: 64px; opacity: 0.3; }
+    .chart-empty p { font-size: 14px; }
+    .chart-tooltip {
+      position: absolute;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-size: 12px;
+      pointer-events: none;
+      box-shadow: var(--card-shadow);
+      z-index: 100;
+      max-width: 300px;
+      display: none;
+    }
+    .detail-panel {
+      height: 200px;
+      min-height: 120px;
+      background: var(--bg-secondary);
+      border-top: 1px solid var(--border);
+      overflow-y: auto;
+      flex-shrink: 0;
+    }
+    .detail-panel::-webkit-scrollbar { width: 6px; }
+    .detail-panel::-webkit-scrollbar-track { background: transparent; }
+    .detail-panel::-webkit-scrollbar-thumb { background: var(--bg-tertiary); border-radius: 3px; }
+    .detail-content { padding: 12px 16px; }
+    .detail-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+    .detail-header h3 { font-size: 13px; font-weight: 600; }
+    .detail-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+      gap: 6px 16px;
+    }
+    .detail-field { font-size: 12px; }
+    .detail-field .label { color: var(--text-muted); }
+    .detail-field .value { color: var(--text-primary); font-weight: 500; }
+    .hex-view {
+      margin-top: 8px;
+      font-family: 'Cascadia Code', 'Consolas', 'Courier New', monospace;
+      font-size: 11px;
+      color: var(--text-secondary);
+      background: var(--bg-primary);
+      padding: 8px 12px;
+      border-radius: 4px;
+      overflow-x: auto;
+      word-break: break-all;
+      line-height: 1.6;
+    }
+    .hex-view .hex-byte { color: #60a5fa; }
+    .hex-view .hex-separator { color: var(--text-muted); margin: 0 2px; }
+    .flags-display { display: flex; gap: 4px; flex-wrap: wrap; }
+    .flag-badge {
+      padding: 2px 6px;
+      border-radius: 3px;
+      font-size: 10px;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+    .flag-on { background: rgba(59,130,246,0.2); color: #60a5fa; }
+    .flag-off { background: var(--bg-primary); color: var(--text-muted); }
+    .loading-overlay {
+      position: absolute;
+      inset: 0;
+      background: rgba(15,23,42,0.8);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 200;
+    }
+    .spinner {
+      width: 40px; height: 40px;
+      border: 3px solid var(--bg-tertiary);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .d3-axis text { fill: var(--text-muted); font-size: 11px; }
+    .d3-axis line, .d3-axis path { stroke: var(--border); }
+    .d3-grid line { stroke: var(--border); stroke-opacity: 0.3; }
+    .d3-grid path { stroke-width: 0; }
+    .dot-tcp { fill: #3b82f6; }
+    .dot-udp { fill: #22c55e; }
+    .dot-syn { fill: #f59e0b; }
+    .dot-fin { fill: #ef4444; }
+    .dot-rst { fill: #ef4444; }
+    .legend {
+      display: flex;
+      gap: 16px;
+      padding: 6px 16px;
+      font-size: 11px;
+      color: var(--text-secondary);
+      background: var(--bg-secondary);
+      border-top: 1px solid var(--border);
+    }
+    .legend-item { display: flex; align-items: center; gap: 4px; }
+    .legend-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+    }
+    .progress-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(15,23,42,0.9);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 500;
+      flex-direction: column;
+      gap: 20px;
+    }
+    .progress-overlay.active { display: flex; }
+    .progress-bar-container {
+      width: 400px;
+      height: 8px;
+      background: var(--bg-tertiary);
+      border-radius: 4px;
+      overflow: hidden;
+    }
+    .progress-bar-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--accent), #8b5cf6);
+      transition: width 0.15s ease;
+      width: 0%;
+    }
+    .progress-text {
+      color: var(--text-secondary);
+      font-size: 13px;
+      text-align: center;
+    }
+    .progress-text strong { color: var(--text-primary); }
+    .sampling-toggle {
+      display: none;
+      gap: 10px;
+      align-items: center;
+      padding: 4px 16px;
+      background: var(--bg-secondary);
+      border-top: 1px solid var(--border);
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
+    .sampling-toggle.active { display: flex; }
+    .sampling-toggle .switch {
+      position: relative;
+      width: 40px;
+      height: 22px;
+      background: var(--bg-tertiary);
+      border-radius: 11px;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .sampling-toggle .switch::after {
+      content: '';
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      width: 18px;
+      height: 18px;
+      background: var(--text-primary);
+      border-radius: 50%;
+      transition: transform 0.15s;
+    }
+    .sampling-toggle .switch.on { background: var(--accent); }
+    .sampling-toggle .switch.on::after { transform: translateX(18px); }
+    .sampling-info { flex: 1; }
+    .sampling-info strong { color: var(--warning); }
+    .dot-dup { fill: #f59e0b; stroke: #f59e0b; }
+    .dot-reorder { fill: #a855f7; stroke: #a855f7; }
+
+    .right-panel {
+      width: 360px;
+      min-width: 300px;
+      background: var(--bg-secondary);
+      border-left: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      flex-shrink: 0;
+      overflow: hidden;
+    }
+    .right-panel-tabs {
+      display: flex;
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    .right-panel-tab {
+      flex: 1;
+      padding: 10px;
+      text-align: center;
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-muted);
+      border-bottom: 2px solid transparent;
+      transition: all 0.15s;
+    }
+    .right-panel-tab:hover { color: var(--text-primary); }
+    .right-panel-tab.active {
+      color: var(--accent);
+      border-bottom-color: var(--accent);
+    }
+    .right-panel-content {
+      flex: 1;
+      overflow-y: auto;
+      padding: 12px;
+    }
+    .right-panel-content::-webkit-scrollbar { width: 6px; }
+    .right-panel-content::-webkit-scrollbar-track { background: transparent; }
+    .right-panel-content::-webkit-scrollbar-thumb { background: var(--bg-tertiary); border-radius: 3px; }
+    .stats-section {
+      margin-bottom: 20px;
+    }
+    .stats-section h4 {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--text-muted);
+      margin-bottom: 8px;
+    }
+    .stats-card {
+      background: var(--bg-primary);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 10px 12px;
+      margin-bottom: 8px;
+    }
+    .stats-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 12px;
+      margin-bottom: 4px;
+    }
+    .stats-row:last-child { margin-bottom: 0; }
+    .stats-label { color: var(--text-secondary); }
+    .stats-value { color: var(--text-primary); font-weight: 600; }
+    .stats-value.warning { color: var(--warning); }
+    .stats-value.danger { color: var(--danger); }
+    .stats-chart-container {
+      background: var(--bg-primary);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 10px;
+      margin-bottom: 12px;
+    }
+    .stats-chart-container svg { width: 100%; height: 180px; }
+    .flag-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+    }
+    .flag-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 11px;
+      padding: 4px 8px;
+      background: var(--bg-primary);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+    }
+    .flag-item .flag-name { color: var(--text-secondary); }
+    .flag-item .flag-count { color: var(--accent); font-weight: 600; }
+
+    .plugin-item {
+      background: var(--bg-primary);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 10px 12px;
+      margin-bottom: 8px;
+    }
+    .plugin-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 6px;
+    }
+    .plugin-name {
+      font-weight: 600;
+      font-size: 13px;
+    }
+    .plugin-actions {
+      display: flex;
+      gap: 6px;
+    }
+    .plugin-btn {
+      padding: 3px 8px;
+      font-size: 10px;
+      border-radius: 4px;
+      cursor: pointer;
+      border: 1px solid var(--border);
+      background: var(--bg-secondary);
+      color: var(--text-secondary);
+    }
+    .plugin-btn:hover { background: var(--border); color: var(--text-primary); }
+    .plugin-btn.danger:hover { background: var(--danger); color: #fff; border-color: var(--danger); }
+    .plugin-description {
+      font-size: 11px;
+      color: var(--text-secondary);
+      margin-bottom: 6px;
+    }
+    .plugin-meta {
+      display: flex;
+      gap: 10px;
+      font-size: 10px;
+      color: var(--text-muted);
+      flex-wrap: wrap;
+    }
+    .plugin-switch {
+      position: relative;
+      width: 34px;
+      height: 18px;
+      background: var(--bg-tertiary);
+      border-radius: 9px;
+      cursor: pointer;
+      transition: background 0.15s;
+      flex-shrink: 0;
+    }
+    .plugin-switch::after {
+      content: '';
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      width: 14px;
+      height: 14px;
+      background: var(--text-primary);
+      border-radius: 50%;
+      transition: transform 0.15s;
+    }
+    .plugin-switch.on { background: var(--accent); }
+    .plugin-switch.on::after { transform: translateX(16px); }
+    .plugin-toolbar {
+      display: flex;
+      gap: 6px;
+      margin-bottom: 12px;
+    }
+    .plugin-toolbar .btn { flex: 1; font-size: 11px; padding: 6px; }
+
+    .app-layer-section {
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px solid var(--border);
+    }
+    .app-layer-section h4 {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--accent);
+      margin-bottom: 8px;
+    }
+    .app-layer-data {
+      background: var(--bg-primary);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 10px;
+      font-size: 11px;
+      font-family: 'Cascadia Code', 'Consolas', monospace;
+    }
+    .app-layer-data .key { color: var(--text-secondary); }
+    .app-layer-data .value { color: var(--text-primary); }
+    .app-layer-data .row { margin-bottom: 3px; }
+    .app-layer-data .row:last-child { margin-bottom: 0; }
+  </style>
+</head>
+<body>
+  <div class="toolbar">
+    <h1>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+      </svg>
+      Pcap Analyzer
+    </h1>
+    <button class="btn btn-primary" id="btn-open" onclick="handleOpenFile()">Open Pcap File</button>
+    <button class="btn btn-secondary" id="btn-export-json" disabled onclick="handleExportJSON()">Export JSON</button>
+    <button class="btn btn-secondary" id="btn-export-bin" disabled onclick="handleExportBinary()">Export Binary</button>
+  </div>
+
+  <div class="stats-bar" id="stats-bar">
+    <div class="stat-item">File: <span class="stat-value" id="stat-file">No file loaded</span></div>
+    <div class="stat-item">Packets: <span class="stat-value" id="stat-packets">0</span></div>
+    <div class="stat-item">Flows: <span class="stat-value" id="stat-flows">0</span></div>
+  </div>
+
+  <div class="main-layout">
+    <div class="sidebar">
+      <div class="filter-panel">
+        <h3>Filters</h3>
+        <div class="filter-grid">
+          <input class="filter-input" id="filter-ip" placeholder="IP address" />
+          <input class="filter-input" id="filter-port" placeholder="Port" />
+          <select class="filter-input" id="filter-protocol">
+            <option value="">All Protocols</option>
+            <option value="TCP">TCP</option>
+            <option value="UDP">UDP</option>
+          </select>
+          <input class="filter-input" id="filter-min-len" placeholder="Min length" />
+          <input class="filter-input" id="filter-max-len" placeholder="Max length" />
+          <input class="filter-input" id="filter-time-start" placeholder="Time start (s)" />
+          <input class="filter-input" id="filter-time-end" placeholder="Time end (s)" />
+        </div>
+        <div class="filter-actions">
+          <button class="btn btn-primary" style="font-size:12px;padding:5px 12px;" onclick="applyFilters()">Apply</button>
+          <button class="btn btn-secondary" style="font-size:12px;padding:5px 12px;" onclick="clearFilters()">Clear</button>
+        </div>
+      </div>
+      <div class="flow-list-header">
+        <span>TCP/UDP Flows</span>
+        <span id="flow-count-label">0</span>
+      </div>
+      <div class="flow-list" id="flow-list"></div>
+    </div>
+
+    <div class="content-area">
+      <div class="chart-container" id="chart-container">
+        <div class="chart-empty" id="chart-empty">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M3 3v18h18"/><path d="M7 16l4-8 4 4 4-8"/>
+          </svg>
+          <p>Open a .pcap or .pcapng file to begin analysis</p>
+        </div>
+        <div class="chart-tooltip" id="chart-tooltip"></div>
+      </div>
+      <div class="legend" id="chart-legend" style="display:none;">
+        <div class="legend-item"><div class="legend-dot" style="background:#3b82f6"></div> TCP</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#22c55e"></div> UDP</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#f59e0b"></div> SYN</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#ef4444"></div> FIN/RST</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#f59e0b;border:1px dashed #f59e0b;border-radius:50%;"></div> Dup</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#a855f7"></div> Reorder</div>
+      </div>
+      <div class="sampling-toggle" id="sampling-toggle">
+        <div class="sampling-info">Showing <strong id="sampled-count">0</strong> of <span id="total-count">0</span> packets (sampled every <span id="sample-rate">10</span>)</div>
+        <span>Show All:</span>
+        <div class="switch" id="sampling-switch" onclick="toggleSampling()"></div>
+      </div>
+      <div class="detail-panel" id="detail-panel">
+        <div class="detail-content" id="detail-content">
+          <p style="color:var(--text-muted);font-size:13px;">Click a packet on the chart to view details</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="right-panel">
+      <div class="right-panel-tabs">
+        <div class="right-panel-tab active" data-tab="stats" onclick="switchRightPanel('stats')">Statistics</div>
+        <div class="right-panel-tab" data-tab="plugins" onclick="switchRightPanel('plugins')">Plugins</div>
+      </div>
+      <div class="right-panel-content" id="panel-stats">
+        <div style="color:var(--text-muted);font-size:12px;text-align:center;padding:30px 10px;">
+          Load a pcap file to view statistics
+        </div>
+      </div>
+      <div class="right-panel-content" id="panel-plugins" style="display:none;">
+        <div class="plugin-toolbar">
+          <button class="btn btn-primary" onclick="handleLoadPlugin()">Load Plugin</button>
+          <button class="btn btn-secondary" onclick="handleRefreshPlugins()">Refresh</button>
+        </div>
+        <div id="plugins-list"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="progress-overlay" id="progress-overlay">
+    <div class="progress-text">
+      <strong>Parsing capture file...</strong><br>
+      <span id="progress-detail">Initializing</span>
+    </div>
+    <div class="progress-bar-container">
+      <div class="progress-bar-fill" id="progress-bar"></div>
+    </div>
+  </div>
+
+  <script src="node_modules/d3/dist/d3.min.js"></script>
+  <script src="renderer.js"></script>
+</body>
+</html>

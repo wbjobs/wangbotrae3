@@ -1,0 +1,19 @@
+# 核心依赖（必需）
+fusepy>=3.0.1
+msgpack>=1.0.5
+xxhash>=3.2.0
+
+# 高性能存储后端（可选，Linux/Mac推荐）
+# python-rocksdb>=0.7.0
+#
+# 安装说明:
+# - Linux:   pip install python-rocksdb
+# - macOS:   brew install rocksdb && pip install python-rocksdb
+# - Windows: 自动使用内置 SQLite 后端，无需额外安装
+
+# 云备份功能（可选，启用S3远程备份时需要）
+# boto3>=1.26.0
+#
+# 安装说明:
+# - pip install boto3
+# - 也支持本地文件系统模拟的云存储（用于测试）

@@ -1,0 +1,22 @@
+{
+  "name": "野外地质勘探数据采集系统",
+  "short_name": "地质采集",
+  "description": "支持离线操作的野外地质勘探数据采集与同步系统",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#1e40af",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
