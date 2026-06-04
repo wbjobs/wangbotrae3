@@ -13,6 +13,7 @@ def plot_hydrograph(
     sub_flows=None,
     n_subbasins=0,
     rainfall=None,
+    observed=None,
     title="Watershed Outlet Hydrograph",
     output_format="png",
     dpi=150,
@@ -38,7 +39,14 @@ def plot_hydrograph(
             ax1.plot(time_hours, sub_flows[s], "--", color=color,
                      alpha=0.7, linewidth=1.0, label=f"Sub-basin {s + 1}")
 
-    ax1.plot(time_hours, flow, "b-", linewidth=2.0, label="Total Flow")
+    if observed is not None and len(observed) > 0:
+        obs_time = np.arange(min(len(observed), n_time)) * time_step / 3600.0
+        ax1.plot(obs_time, observed[:len(obs_time)], "ro", markersize=4,
+                 alpha=0.6, label="Observed Flow")
+        ax1.plot(time_hours, flow, "b-", linewidth=2.0, label="Simulated Flow")
+    else:
+        ax1.plot(time_hours, flow, "b-", linewidth=2.0, label="Total Flow")
+
     ax1.fill_between(time_hours, flow, alpha=0.15, color="blue")
 
     peak_idx = np.argmax(flow)

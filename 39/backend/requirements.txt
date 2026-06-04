@@ -1,0 +1,7 @@
+fastapi
+uvicorn
+open3d
+numpy
+scipy
+python-multipart
+aiofiles

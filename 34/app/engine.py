@@ -1,5 +1,8 @@
 import numpy as np
 from numba import njit, prange
+from scipy.stats import norm
+from scipy.spatial.distance import cdist
+from scipy.linalg import cholesky, solve
 
 
 @njit(cache=True)
@@ -1041,8 +1044,12 @@ def nash_sutcliffe_efficiency(simulated, observed):
     sim = np.asarray(simulated, dtype=np.float64)
     obs = np.asarray(observed, dtype=np.float64)
 
-    if len(sim) != len(obs):
-        raise ValueError("Simulated and observed arrays must have the same length")
+    min_len = min(len(sim), len(obs))
+    if min_len < 2:
+        return -np.inf
+
+    sim = sim[:min_len]
+    obs = obs[:min_len]
 
     mask = ~np.isnan(obs)
     if np.sum(mask) < 2:
@@ -1241,6 +1248,10 @@ class BayesianOptimizer:
 def calibrate_model(engine, dem, rainfall_list, observed_flow,
                     param_names=None, max_iterations=50, random_seed=42,
                     callback=None):
+    initial_params = engine.get_calib_params()
+    initial_result = engine.run_giuh(dem, rainfall_list, calib_params=initial_params)
+    initial_nse = nash_sutcliffe_efficiency(initial_result["flow"], observed_flow)
+
     optimizer = BayesianOptimizer(
         engine=engine,
         dem=dem,
@@ -1250,4 +1261,6 @@ def calibrate_model(engine, dem, rainfall_list, observed_flow,
         max_iterations=max_iterations,
         random_seed=random_seed
     )
-    return optimizer.optimize(callback=callback)
+    result = optimizer.optimize(callback=callback)
+    result["initial_nse"] = float(initial_nse)
+    return result
